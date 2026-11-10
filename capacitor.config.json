@@ -1,0 +1,13 @@
+{
+  "appId": "com.dana.wallet",
+  "appName": "جزدانەکەم",
+  "webDir": "www",
+  "server": {
+    "url": "https://wallet-dana.onrender.com",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "appendUserAgent": "WalletApp"
+  }
+}

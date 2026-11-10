@@ -1,0 +1,50 @@
+workflows:
+  ios-testflight:
+    name: Wallet iOS (TestFlight)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: CHANGE_ME_KEY_NAME        # 1) the name you gave the App Store Connect API key in Codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.dana.wallet          # 2) same as appId in capacitor.config.json
+      vars:
+        APP_STORE_APPLE_ID: "0000000000"            # 3) numeric Apple ID of the app (App Store Connect > App > General > App Information)
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 22
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install npm packages
+        script: npm install
+      - name: Create iOS project and sync
+        script: |
+          if [ ! -d ios ]; then npx cap add ios; fi
+          PLIST=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string Take photos of receipts" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string Attach photos to entries" "$PLIST" || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$PLIST" || true
+          if [ -f assets/icon-only.png ]; then npx @capacitor/assets generate --ios || true; fi
+          npx cap sync ios
+      - name: Set up code signing
+        script: xcode-project use-profiles --project "$CM_BUILD_DIR/ios/App/App.xcodeproj"
+      - name: Increment build number
+        script: |
+          cd "$CM_BUILD_DIR/ios/App"
+          LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          case "$LATEST" in ''|*[!0-9]*) LATEST=0;; esac
+          agvtool new-version -all $((LATEST + 1))
+      - name: Build ipa
+        script: |
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

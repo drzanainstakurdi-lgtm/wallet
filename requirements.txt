@@ -1,0 +1,7 @@
+flask>=3.0
+supabase>=2.5
+python-dotenv>=1.0
+gunicorn>=22.0
+tzdata
+Authlib
+requests
