@@ -352,7 +352,7 @@ def fmt(v, cur, L="en"):
 @app.context_processor
 def ctx():
     L = lang()
-    return dict(t=lambda k: T[L][k], L=L, dir=T[L]["dir"], fm=lambda v, c: fmt(v, c, L),
+    return dict(t=lambda k: T[L].get(k) or T["en"].get(k) or T["ku"].get(k, k), L=L, dir=T[L]["dir"], fm=lambda v, c: fmt(v, c, L),
                 link=lambda **kw: url_for("index", **{**request.args.to_dict(), **kw}))
 
 DIG = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫،", "01234567890123456789.,")
