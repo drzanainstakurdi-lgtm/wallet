@@ -1,7 +1,4 @@
 {
   "python.defaultInterpreterPath": ".venv/Scripts/python.exe",
-  "files.exclude": {
-    "**/__pycache__": true
-  },
-  "python.terminal.useEnvFile": true
+  "files.exclude": { "**/__pycache__": true }
 }

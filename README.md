@@ -72,3 +72,24 @@ Print: account statement, income only, expenses only, grand total of all account
 - New case: "Start date" (defaults to today) plus the optional "Next hearing" date.
 - Sharing: typing a username shows the person's photo and display name; the Share button stays disabled until the person is found.
 - **Re-run `schema.sql`** (new columns: display_name, phone, avatar, logo, started).
+
+## v10: case types and Google sign-in
+- Cases can be: court case, property (house) sale/purchase, car sale/purchase, other matter. Each type has its own labels
+  (deed number, address, plate number, car model...), the other party, the deal value, and a type filter in the list.
+- Print: the totals row now appears only once, at the end of each table.
+- **Google sign-in**: the button is on the login and register pages.
+  1. Google Cloud Console > APIs & Services > Credentials > OAuth client ID (Web application).
+  2. Authorized redirect URIs: `https://YOUR-DOMAIN/auth/google/callback` (add every domain you use, e.g. Vercel and Render, and `http://localhost:5000/auth/google/callback` for local tests).
+  3. On your host (Vercel / Render) set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` and **redeploy** (changing variables does not apply until a new deploy).
+  4. Open `https://YOUR-DOMAIN/auth/google/info`: it shows whether the keys are seen and the exact redirect URI to paste into Google.
+  Optional: `PUBLIC_URL=https://YOUR-DOMAIN` forces the address used in the redirect.
+- Google sign-in does not work inside an embedded WebView (the Capacitor iPhone app): Google blocks it. Use Safari / the home-screen web app, or ask for the in-app browser setup.
+- **Re-run `schema.sql`** (new columns: case_type, party, price, google_id, email, google_only).
+
+## v11: printing that works everywhere
+- Print pages (reports and receipts) now never fail with "Internal Server Error" when the database has not been upgraded yet
+  (before, a missing `phone`/`logo` column broke every print). Still re-run `schema.sql` to get logo and phone on the letterhead.
+- **Print** button: opens the print dialog in a browser; inside the iPhone app (Capacitor) or the home-screen app, where the
+  print dialog does not exist, it creates a PDF and opens the share sheet (Print / Save to Files / WhatsApp...).
+- **PDF** button: creates an A4 PDF (pages never cut a table row in half) and shares or downloads it.
+- The PDF is built in the browser (html2canvas + jsPDF loaded from jsDelivr), so the phone needs internet for that step.

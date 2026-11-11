@@ -56,6 +56,15 @@ alter table accounts add column if not exists fee numeric(16,2) not null default
 alter table accounts add column if not exists status text not null default 'open';
 alter table users add column if not exists office text default '';
 
+-- v10: case types (court / house / car / other) and Google sign-in
+alter table accounts add column if not exists case_type text not null default 'court';
+alter table accounts add column if not exists party text default '';
+alter table accounts add column if not exists price numeric(16,2) not null default 0;
+alter table users add column if not exists google_id text;
+alter table users add column if not exists email text;
+alter table users add column if not exists google_only boolean not null default false;
+create unique index if not exists users_google on users(google_id) where google_id is not null;
+
 -- v8: profile (name, photo), print letterhead (phone, logo), case start date
 alter table users add column if not exists display_name text default '';
 alter table users add column if not exists phone text default '';
@@ -217,7 +226,7 @@ select jsonb_build_object(
       from account_members m join users u on u.id = m.user_id join accounts a on a.id = m.account_id
       where a.user_id = p_user), '[]'::jsonb),
   'cases', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'client', c.client, 'case_no', c.case_no,
-                          'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started,
+                          'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price,
                           'role', acc_role(p_user, c.id),
                           'owner', (select u.username from users u where u.id = c.user_id),
                           'shared', exists (select 1 from account_members m where m.account_id = c.id and m.accepted),
@@ -288,7 +297,7 @@ create or replace function case_view(p_user bigint, p_case bigint)
 returns jsonb language sql stable as $$
 select jsonb_build_object(
   'case', jsonb_build_object('id', c.id, 'name', c.name, 'client', c.client, 'case_no', c.case_no,
-                             'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started),
+                             'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price),
   'role', acc_role(p_user, c.id),
   'owner', (select u.username from users u where u.id = c.user_id),
   'members', case when c.user_id = p_user then coalesce((
@@ -310,7 +319,7 @@ create or replace function report(p_user bigint, p_from date, p_to date)
 returns jsonb language sql stable as $$
 select coalesce(jsonb_agg(jsonb_build_object(
   'id', a.id, 'name', a.name, 'currency', a.currency, 'opening', a.opening, 'kind', a.kind,
-  'client', a.client, 'case_no', a.case_no, 'court', a.court, 'fee', a.fee, 'status', a.status, 'started', a.started,
+  'client', a.client, 'case_no', a.case_no, 'court', a.court, 'fee', a.fee, 'status', a.status, 'started', a.started, 'ctype', a.case_type, 'party', a.party, 'price', a.price,
   'role', acc_role(p_user, a.id),
   'inc', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'income'  and t.kind = 'normal' and t.date between p_from and p_to), 0),
   'exp', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'expense' and t.kind = 'normal' and t.date between p_from and p_to), 0),

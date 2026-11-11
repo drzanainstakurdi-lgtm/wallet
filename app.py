@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # جزدانی ئەلکترۆنی / المحفظة الإلكترونية / E-Wallet  (Flask + Supabase)
-import os, re, uuid, json, calendar, gzip, hashlib
+import os, re, uuid, json, calendar, gzip, hashlib, secrets, urllib.parse
+import httpx
+from werkzeug.middleware.proxy_fix import ProxyFix
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, date
 from functools import wraps
@@ -27,6 +29,9 @@ sb = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"
 
 POOL = ThreadPoolExecutor(4)   # background jobs (photo upload / cleanup)
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)      # correct https links behind Render
+GID, GSECRET = os.getenv("GOOGLE_CLIENT_ID", ""), os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_ON = bool(GID and GSECRET)
 app.config.update(
     SECRET_KEY=os.environ["SECRET_KEY"],
     MAX_CONTENT_LENGTH=12 * 1024 * 1024,
@@ -300,6 +305,38 @@ T["en"].update(dict(
   started="Start date", lk_hint="Type a username to see the person's photo and name.",
   lk_nf="Username not found", lk_self="This is your own account"))
 
+T["ku"].update(dict(
+  case_type="جۆری دۆسیە / مامەڵە", ct_court="دۆسیەی دادگا", ct_house="کڕین و فرۆشتنی خانوو",
+  ct_car="کڕین و فرۆشتنی ئۆتۆمبێل", ct_other="مامەڵەی تر (گرێبەست، وەکالەت...)",
+  no_court="ژمارەی دۆسیە", no_house="ژمارەی تاپۆ / ڕێککەوتن", no_car="ژمارەی پلێت", no_other="ژمارە",
+  det_court="دادگا", det_house="ناونیشان / وردەکاری خانوو", det_car="جۆر و مۆدێلی ئۆتۆمبێل", det_other="وردەکاری",
+  party="لایەنی بەرانبەر (کڕیار/فرۆشیار)", price="بەهای مامەڵە",
+  google_btn="بەردەوامبە بە گۆگڵ", or_="یان", g_fail="چوونەژوورەوە بە گۆگڵ سەرکەوتوو نەبوو"))
+T["ar"].update(dict(
+  case_type="نوع القضية / المعاملة", ct_court="قضية محكمة", ct_house="بيع وشراء عقار",
+  ct_car="بيع وشراء سيارة", ct_other="معاملة أخرى (عقد، وكالة...)",
+  no_court="رقم القضية", no_house="رقم السند / الاتفاق", no_car="رقم اللوحة", no_other="الرقم",
+  det_court="المحكمة", det_house="العنوان / تفاصيل العقار", det_car="نوع وموديل السيارة", det_other="التفاصيل",
+  party="الطرف الآخر (المشتري/البائع)", price="قيمة المعاملة",
+  google_btn="المتابعة باستخدام Google", or_="أو", g_fail="فشل تسجيل الدخول عبر Google"))
+T["en"].update(dict(
+  case_type="Case / matter type", ct_court="Court case", ct_house="Property sale and purchase",
+  ct_car="Car sale and purchase", ct_other="Other matter (contract, power of attorney...)",
+  no_court="Case number", no_house="Deed / agreement number", no_car="Plate number", no_other="Number",
+  det_court="Court", det_house="Address / property details", det_car="Car make and model", det_other="Details",
+  party="Other party (buyer/seller)", price="Deal value",
+  google_btn="Continue with Google", or_="or", g_fail="Google sign-in failed"))
+
+T["ku"].update(dict(
+  pdf_wait="چاوەڕێ بکە...", pdf_fail="دروستکردنی PDF سەرکەوتوو نەبوو. ئینتەرنێتت بپشکنە و دووبارە هەوڵ بدەرەوە.",
+  app_hint="لەناو ئەپەکە چاپکردنی ڕاستەوخۆ نییە. دوگمەی PDF دابگرە و لە لیستی هاوبەشکردن «Print» یان «Save to Files» هەڵبژێرە."))
+T["ar"].update(dict(
+  pdf_wait="يرجى الانتظار...", pdf_fail="تعذّر إنشاء PDF. تحقق من الاتصال وحاول مجدداً.",
+  app_hint="الطباعة المباشرة غير متاحة داخل التطبيق. اضغط زر PDF ثم اختر «Print» أو «Save to Files» من قائمة المشاركة."))
+T["en"].update(dict(
+  pdf_wait="Please wait...", pdf_fail="Could not create the PDF. Check your connection and try again.",
+  app_hint="Direct printing is not available inside the app. Tap PDF, then choose Print or Save to Files from the share sheet."))
+
 def lang():
     return session.get("lang") if session.get("lang") in T else "ku"
 
@@ -425,7 +462,7 @@ def register():
     return auth("register")
 
 def auth(mode):
-    err = None
+    err = "g_fail" if request.args.get("e") == "google" else None
     if request.method == "POST":
         u = request.form.get("username", "").strip().lower()
         p = request.form.get("password", "")
@@ -452,7 +489,80 @@ def auth(mode):
                 if lg: session["lang"] = lg
                 return redirect(url_for("index"))
             err = "bad"
-    return render_template_string(AUTH, mode=mode, err=err, css=CSS)
+    return render_template_string(AUTH, mode=mode, err=err, css=CSS, google_on=True)
+
+def base_url():
+    return (os.getenv("PUBLIC_URL") or request.host_url).rstrip("/")
+
+def login_user(u):
+    lg = session.get("lang")
+    session.clear(); session.permanent = True
+    session.update(uid=u["id"], user=u["username"], office=u.get("office") or "",
+                   dname=u.get("display_name") or "", phone=u.get("phone") or "")
+    if u.get("google_only"): session["gonly"] = True
+    if lg: session["lang"] = lg
+
+@app.route("/auth/google")
+def google_start():
+    if not GOOGLE_ON:
+        return render_template_string(GNOTE, css=CSS_INLINE, uri=base_url() + "/auth/google/callback"), 503
+    session["gstate"] = state = secrets.token_urlsafe(24)
+    q = urllib.parse.urlencode({"client_id": GID, "redirect_uri": base_url() + "/auth/google/callback",
+                                "response_type": "code", "scope": "openid email profile", "state": state,
+                                "prompt": "select_account"})
+    return redirect("https://accounts.google.com/o/oauth2/v2/auth?" + q)
+
+@app.route("/auth/google/info")
+def google_info():
+    return jsonify(configured=GOOGLE_ON, client_id_set=bool(GID), secret_set=bool(GSECRET),
+                   redirect_uri=base_url() + "/auth/google/callback")
+
+@app.route("/auth/google/callback")
+def google_callback():
+    if not GOOGLE_ON: abort(404)
+    fail = redirect(url_for("login", e="google"))
+    code, state = request.args.get("code"), request.args.get("state")
+    if request.args.get("error") or not code or not state or state != session.pop("gstate", None):
+        return fail
+    try:
+        tok = httpx.post("https://oauth2.googleapis.com/token", timeout=12, data={
+            "code": code, "client_id": GID, "client_secret": GSECRET, "grant_type": "authorization_code",
+            "redirect_uri": base_url() + "/auth/google/callback"}).json()
+        info = httpx.get("https://openidconnect.googleapis.com/v1/userinfo", timeout=12,
+                         headers={"Authorization": "Bearer " + tok["access_token"]}).json()
+    except Exception as ex:
+        app.logger.error("google sign-in failed: %s", ex)
+        return fail
+    gid, email = info.get("sub"), (info.get("email") or "").strip().lower()
+    if not gid or not email or info.get("email_verified") is False: return fail
+    found = sb.table("users").select("*").eq("google_id", gid).limit(1).execute().data
+    if not found:
+        found = sb.table("users").select("*").eq("email", email).limit(1).execute().data
+        if found:
+            sb.table("users").update({"google_id": gid}, returning=MIN).eq("id", found[0]["id"]).execute()
+    if found:
+        login_user(found[0]); return redirect(url_for("index"))
+    base = re.sub(r"[^a-z0-9._-]", "", email.split("@")[0])[:24] or "user"
+    name, n = base, 1
+    while find_user(name):
+        n += 1; name = f"{base}{n}"
+    lg = session.get("lang")
+    row = sb.table("users").insert({"username": name, "pw": generate_password_hash(secrets.token_hex(16)),
+                                    "google_id": gid, "email": email, "google_only": True,
+                                    "display_name": (info.get("name") or "")[:50]}).execute().data[0]
+    sb.table("accounts").insert({"user_id": row["id"], "name": T[lg if lg in T else "ku"]["acc_default"],
+                                 "currency": "IQD"}, returning=MIN).execute()
+    if info.get("picture"):                       # use the Google photo as the profile photo (best effort)
+        try:
+            img = httpx.get(info["picture"], timeout=10)
+            if img.status_code == 200 and len(img.content) < 3 * 1024 * 1024:
+                path = f"{row['id']}/avatar-{uuid.uuid4().hex[:10]}.jpg"
+                sb.storage.from_(BUCKET).upload(path, img.content, {"content-type": "image/jpeg"})
+                sb.table("users").update({"avatar": path}, returning=MIN).eq("id", row["id"]).execute()
+        except Exception as ex:
+            app.logger.warning("google photo skipped: %s", ex)
+    login_user(row)
+    return redirect(url_for("index"))
 
 @app.route("/logout")
 def logout():
@@ -587,12 +697,12 @@ def rec_delete(i):
 @login_required
 def password():
     old, new = request.form.get("old", ""), request.form.get("new", "")
-    u = sb.table("users").select("pw").eq("id", session["uid"]).limit(1).execute().data
-    if not u or not check_password_hash(u[0]["pw"], old): session["msg"] = "!pw_bad"
+    u = sb.table("users").select("pw,google_only").eq("id", session["uid"]).limit(1).execute().data
+    if not u or (not u[0].get("google_only") and not check_password_hash(u[0]["pw"], old)): session["msg"] = "!pw_bad"
     elif len(new) < 4: session["msg"] = "!short"
     else:
-        sb.table("users").update({"pw": generate_password_hash(new)}, returning=MIN).eq("id", session["uid"]).execute()
-        session["msg"] = 1
+        sb.table("users").update({"pw": generate_password_hash(new), "google_only": False}, returning=MIN).eq("id", session["uid"]).execute()
+        session.pop("gonly", None); session["msg"] = 1
     return redirect(url_for("index") + "#settings")
 
 @app.route("/clear", methods=["POST"])
@@ -608,6 +718,13 @@ def clear():
         session["msg"] = 1
     return redirect(url_for("index"))
 
+def letterhead(uid):
+    try:
+        return sb.table("users").select("office,phone,logo").eq("id", uid).limit(1).execute().data
+    except Exception:                      # database not upgraded yet (no phone / logo columns)
+        try: return sb.table("users").select("office").eq("id", uid).limit(1).execute().data
+        except Exception: return []
+
 @app.route("/print")
 @login_required
 def print_view():
@@ -618,7 +735,7 @@ def print_view():
     rep = sb.rpc("report", {"p_user": uid, "p_from": s.isoformat(), "p_to": e.isoformat()}).execute().data
     plabel = T[L]["all_time"] if key == "all" else (s.isoformat() if s == e else f"{s.isoformat()} \u2192 {e.isoformat()}")
     now = (datetime.now(TZ) if TZ else datetime.now()).strftime("%Y-%m-%d %H:%M")
-    u = sb.table("users").select("office,phone,logo").eq("id", uid).limit(1).execute().data
+    u = letterhead(uid)
     base = dict(kind=kind, rep=rep, plabel=plabel, now=now, user=session["user"], office=(u[0].get("office") if u else "") or "", phone=(u[0].get("phone") if u else "") or "", has_logo=bool(u and u[0].get("logo")),
                 auto=request.args.get("auto") == "1", inc=[], exp=[], trs=[], tots={}, acc=None, cur="IQD")
     if kind == "grand":
@@ -650,9 +767,12 @@ def case_fields():
     def day(k):
         try: return datetime.strptime(f.get(k, ""), "%Y-%m-%d").date().isoformat()
         except ValueError: return None
+    ct = f.get("ctype")
     return {"name": f.get("name", "").strip()[:80], "client": f.get("client", "").strip()[:80],
             "case_no": f.get("case_no", "").strip()[:40], "court": f.get("court", "").strip()[:80],
-            "fee": num(f.get("fee")), "hearing": day("hearing"), "started": day("started")}
+            "fee": num(f.get("fee")), "hearing": day("hearing"), "started": day("started"),
+            "case_type": ct if ct in ("court", "house", "car", "other") else "court",
+            "party": f.get("party", "").strip()[:80], "price": num(f.get("price"))}
 
 @app.route("/case/new", methods=["POST"])
 @login_required
@@ -680,8 +800,10 @@ def case_page(i):
         return list(g.items())
     c["fee"] = float(c["fee"])
     fee_v = int(c["fee"]) if c["fee"] == int(c["fee"]) else c["fee"]
+    c["price"] = float(c.get("price") or 0)
+    price_v = int(c["price"]) if c["price"] == int(c["price"]) and c["price"] else (c["price"] or "")
     return render_template_string(
-        CASE, c=c, cur=c["currency"], inc=float(d["inc"]), exp=float(d["exp"]), n=len(d["items"]), fee_v=fee_v,
+        CASE, c=c, price_v=price_v, cur=c["currency"], inc=float(d["inc"]), exp=float(d["exp"]), n=len(d["items"]), fee_v=fee_v,
         gi=group([x for x in d["items"] if x["type"] == "income"]),
         ge=group([x for x in d["items"] if x["type"] == "expense"]),
         role=d.get("role", "owner"), owner=d.get("owner", ""), members=d.get("members", []), uid=session["uid"],
@@ -726,7 +848,7 @@ def receipt(i):
     if not t or t[0]["type"] != "income" or t[0]["kind"] != "normal": abort(404)
     if not sb.rpc("acc_role", {"p_user": uid, "p_acc": t[0]["account_id"]}).execute().data: abort(404)
     a = sb.table("accounts").select("name,client,case_no,currency,kind").eq("id", t[0]["account_id"]).limit(1).execute().data[0]
-    u = sb.table("users").select("office,phone,logo").eq("id", uid).limit(1).execute().data
+    u = letterhead(uid)
     now = (datetime.now(TZ) if TZ else datetime.now()).strftime("%Y-%m-%d %H:%M")
     r = dict(t[0], amount=float(t[0]["amount"]))
     return render_template_string(RECEIPT, r=r, acc=a, office=(u[0].get("office") if u else "") or "", phone=(u[0].get("phone") if u else "") or "", has_logo=bool(u and u[0].get("logo")), now=now,
@@ -909,7 +1031,7 @@ def index():
         cases=d["cases"], invites=invites, transfers=transfers, owned=owned, uid=uid, bud=bud, soon=soon, recs=d.get("recurring", []), accname=accname, curmap=curmap,
         budget_v=budget_v, td=td.isoformat(), css=CSS, user=session["user"], key=key, plabel=plabel, pf=pf,
         msg=pop_msg(L), office=session.get("office", ""), dname=session.get("dname", ""),
-        phone=session.get("phone", ""), pv=session.get("pv", "0"),
+        phone=session.get("phone", ""), pv=session.get("pv", "0"), gonly=session.get("gonly", False),
         labels=sorted({x["label"] for x in d["items_in"] + d["items_ex"] if x["label"]}))
 
 # ---------------------------------------------------------------- entries# ---------------------------------------------------------------- entries
@@ -1226,6 +1348,9 @@ input[type=file]{padding:10px}
 .note-banner{padding:12px 16px;margin-bottom:12px;font-size:14px;background:#F1F5FB;border-color:#cfdcf0}
 .x.rc{text-decoration:none;font-size:16px}
 /* ---- features ---- */
+.badge.ty{background:#FFF1E8;color:var(--acc)}
+.or{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;margin:14px 0 4px}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--edge)}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:12px;border:1px solid var(--edge);border-radius:14px;background:#fff;color:#1f1f1f;font:inherit;font-weight:700;text-decoration:none}
 .av{position:relative;display:inline-grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--soft);color:var(--acc);font-weight:800;overflow:hidden;flex:none}
 .av img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .av.sm{width:34px;height:34px;font-size:14px}.av.big{width:54px;height:54px;font-size:22px}.av.xl{width:96px;height:96px;font-size:38px}
@@ -1417,6 +1542,17 @@ ERR = """<!doctype html><html lang="ku" dir="rtl"><head><meta charset="utf-8"><t
 {% if detail %}<pre dir="ltr" style="text-align:left;white-space:pre-wrap;font-size:12px;background:var(--soft);padding:10px;border-radius:12px;margin-top:14px">{{detail}}</pre>{% endif %}
 <a class="btn" href="/">&#8635;</a></div></div></body></html>"""
 
+GNOTE = """<!doctype html><html lang="ku" dir="rtl"><head><meta charset="utf-8"><title>Google</title>{{css|safe}}</head>
+<body><div class="off"><div class="glass"><div style="font-size:42px">&#128274;</div>
+<h2>چوونەژوورەوە بە گۆگڵ ڕێکنەخراوە</h2>
+<p>لە شوێنی خستنەسەری ئەپەکەت (Vercel یان Render) ئەم دوو Environment Variable دابنێ و دووبارە Deploy بکە:</p>
+<pre dir="ltr" style="text-align:left;background:var(--soft);padding:10px;border-radius:12px">GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET</pre>
+<p>لە Google Cloud &larr; Credentials &larr; OAuth client &larr; Authorized redirect URIs ئەم ناونیشانە زیاد بکە:</p>
+<pre dir="ltr" style="text-align:left;background:var(--soft);padding:10px;border-radius:12px;white-space:pre-wrap;word-break:break-all">{{uri}}</pre>
+<p dir="ltr" style="font-size:12px">Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your host settings, redeploy, and add the URI above in Google Cloud.</p>
+<a class="btn" href="/login">&larr;</a></div></div></body></html>"""
+
 AUTH = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{t('app')}}</title>{{css|safe}}</head>
 <body><div class="blob"></div><div class="auth"><form method="post" class="glass">
 <div class="top"><h2>{{t('app')}}</h2>""" + LANGS + """</div>
@@ -1424,6 +1560,7 @@ AUTH = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <label>{{t('username')}}</label><input name="username" autocapitalize="none" autocomplete="username" required>
 <label>{{t('password')}}</label><input name="password" type="password" autocomplete="{{'new-password' if mode=='register' else 'current-password'}}" required>
 <button class="btn">{{t(mode)}}</button>
+{% if google_on %}<div class="or"><span>{{t('or_')}}</span></div><a class="gbtn" href="/auth/google"><svg viewBox="0 0 48 48" width="20" height="20"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6l-7.9-6.1C.9 16.5 0 20.1 0 24s.9 7.5 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.8 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.9l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg> {{t('google_btn')}}</a>{% endif %}
 <p>{% if mode=='login' %}{{t('no_acc')}} <a href="/register">{{t('register')}}</a>{% else %}{{t('has_acc')}} <a href="/login">{{t('login')}}</a>{% endif %}</p>
 </form></div>""" + PWA + """</body></html>"""
 
@@ -1439,6 +1576,9 @@ function shrink(file){return new Promise(res=>{const im=new Image(),u=URL.create
   c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
   URL.revokeObjectURL(u);c.toBlob(b=>res(b),'image/jpeg',0.72)};
  im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
+function applyType(f){const t=f.ctype.value,no=f.querySelector('.l-no'),det=f.querySelector('.l-det'),h=f.querySelector('.w-hearing'),p=f.querySelector('.w-price');
+ if(no)no.textContent=TX['no_'+t];if(det)det.textContent=TX['det_'+t];
+ if(h)h.style.display=t==='court'?'':'none';if(p)p.style.display=t==='court'?'none':''}
 let _lt;
 function lookupUser(inp){clearTimeout(_lt);const v=inp.value.trim().toLowerCase(),box=$('sh-prev'),go=$('sh-go');
  if(go)go.disabled=true;
@@ -1487,6 +1627,49 @@ CASESHARE = """
 <button class="btn" id="sh-go" disabled>{{t('share_add')}}</button></form></div>
 """
 
+PRINTJS = r"""
+var B=document.body,UA=navigator.userAgent,AUTO=B.dataset.auto==='1';
+var IN_APP=!!(window.Capacitor||navigator.standalone||/WalletApp/.test(UA));
+function loadScript(src){return new Promise(function(res,rej){var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s)})}
+function pageBreaks(bounds,total,pageH){var out=[],y=0;
+ while(y<total-2){var end=Math.min(y+pageH,total);
+  if(end<total){var c=bounds.filter(function(b){return b>y+pageH*0.4&&b<=end});if(c.length)end=Math.max.apply(null,c)}
+  out.push([y,end]);y=end}
+ return out}
+function doPrint(){if(IN_APP){makePdf(true);return}try{window.print()}catch(e){makePdf(true)}}
+async function makePdf(share){
+ var btns=[].slice.call(document.querySelectorAll('.bar button')),old=btns.map(function(b){return b.innerHTML});
+ btns.forEach(function(b){b.disabled=true});btns[0].textContent=B.dataset.wait;
+ var clone=null;
+ try{
+  await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+  await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+  clone=document.getElementById('sheet').cloneNode(true);       /* fixed A4 width, whatever the screen */
+  clone.style.cssText='position:absolute;left:-12000px;top:0;width:794px;background:#fff;padding:0';
+  document.body.appendChild(clone);
+  var cv=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794});
+  var top=clone.getBoundingClientRect().top;
+  var bounds=[].map.call(clone.querySelectorAll('tr,h2,.totals,.sign,.lh,.cinfo'),function(r){return(r.getBoundingClientRect().bottom-top)*2});
+  var pdf=new window.jspdf.jsPDF({unit:'pt',format:'a4'}),m=28;
+  var pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),k=(pw-2*m)/cv.width;
+  pageBreaks(bounds,cv.height,(ph-2*m)/k).forEach(function(p,i){
+   var sl=document.createElement('canvas');sl.width=cv.width;sl.height=Math.ceil(p[1]-p[0]);
+   sl.getContext('2d').drawImage(cv,0,p[0],cv.width,p[1]-p[0],0,0,cv.width,p[1]-p[0]);
+   if(i)pdf.addPage();pdf.addImage(sl.toDataURL('image/jpeg',0.92),'JPEG',m,m,cv.width*k,sl.height*k)});
+  var blob=pdf.output('blob'),name=(document.title||'wallet').replace(/[\\\/:*?"<>|]+/g,' ').trim().slice(0,60)+'.pdf';
+  var file=new File([blob],name,{type:'application/pdf'});
+  if(share&&navigator.canShare&&navigator.canShare({files:[file]})){
+   try{await navigator.share({files:[file],title:document.title});return}catch(e){if(e&&e.name==='AbortError')return}}
+  var url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  if(IN_APP||/iPhone|iPad/.test(UA))setTimeout(function(){location.href=url},400);
+ }catch(e){console.error(e);alert(B.dataset.fail)}
+ finally{if(clone)clone.remove();btns.forEach(function(b,i){b.disabled=false;b.innerHTML=old[i]})}
+}
+if(IN_APP){var h=document.getElementById('apphint');if(h)h.style.display='block'}
+else if(AUTO)addEventListener('load',function(){setTimeout(doPrint,700)});
+"""
+
 RECEIPT = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{t('receipt_t')}} {{r.id}}</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -1506,9 +1689,13 @@ td.n{direction:ltr;text-align:start;font-weight:700;font-size:19px}
 .bar{display:flex;gap:8px;justify-content:space-between;margin-bottom:14px}
 .bar a,.bar button{padding:11px 18px;border-radius:12px;border:1px solid #111;background:#fff;color:#111;font:inherit;text-decoration:none;cursor:pointer}
 .bar button{background:#D97757;border-color:#D97757;color:#fff;font-weight:700}
+.grp{display:flex;gap:8px}.bar button.alt{background:#fff;color:#111;border-color:#111}.bar button:disabled{opacity:.6}
+.hint{background:#FFF7F2;border:1px solid #D97757;border-radius:10px;padding:8px 12px;margin:0 0 12px;font-size:13px;line-height:1.7}#sheet{background:#fff}
 @media print{.noprint{display:none}body{padding:0}@page{margin:14mm}}
-</style></head><body>
-<div class="bar noprint"><a href="javascript:history.back()">&larr; {{t('back')}}</a><button onclick="print()">&#128424; {{t('print_btn')}}</button></div>
+</style></head><body data-auto="{{ '1' if auto else '0' }}" data-wait="{{t('pdf_wait')}}" data-fail="{{t('pdf_fail')}}">
+<div class="bar noprint"><a href="javascript:history.back()">&larr; {{t('back')}}</a><span class="grp"><button class="alt" onclick="makePdf(true)">&#128196; PDF</button><button onclick="doPrint()">&#128424; {{t('print_btn')}}</button></span></div>
+<div id="apphint" class="hint noprint" style="display:none">{{t('app_hint')}}</div>
+<div id="sheet">
 <div class="lh"><div class="lhl">{% if has_logo %}<img class="logo" src="/logo" alt="">{% endif %}<div><div class="office">{{office or t('app')}}</div>{% if phone %}<div class="meta" dir="ltr">&#9742; {{phone}}</div>{% endif %}</div></div><div class="meta">{{t('generated')}}: {{now}}</div></div>
 <h1>{{t('receipt_t')}}</h1>
 <table>
@@ -1520,7 +1707,8 @@ td.n{direction:ltr;text-align:start;font-weight:700;font-size:19px}
 <tr><th>{{t('amount')}}</th><td class="n">{{fm(r.amount, acc.currency)}}</td></tr>
 </table>
 <div class="sign"><div>{{t('receipt_from')}}</div><div>{{t('signature')}}</div></div>
-<script>{% if auto %}addEventListener('load',function(){setTimeout(function(){print()},700)});{% endif %}</script>
+</div>
+<script>""" + PRINTJS + """</script>
 </body></html>"""
 
 XSHEETS = """
@@ -1617,10 +1805,11 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <div class="chips" id="cfilter"><button class="pill on" data-f="all" onclick="filterCases('all')">{{t('all')}}</button>
 <button class="pill" data-f="open" onclick="filterCases('open')">{{t('status_open')}}</button>
 <button class="pill" data-f="closed" onclick="filterCases('closed')">{{t('status_closed')}}</button></div>
+<div class="chips" id="tfilter"><button class="pill on" data-t="all" onclick="filterType('all')">{{t('all')}}</button>{% for k in ['court','house','car','other'] %}<button class="pill" data-t="{{k}}" onclick="filterType('{{k}}')">{{t('ct_'+k)}}</button>{% endfor %}</div>
 <button class="btn sm" style="margin:0 0 12px" onclick="openSheet('casesheet')">+ {{t('new_case')}}</button>
-{% macro casecard(c) %}<a class="glass cc" data-st="{{c.status}}" href="/case/{{c.id}}">
-<div class="cch"><b>{{c.name}}</b><span class="badge {{c.status}}">{{t('status_'+c.status)}}</span></div>
-<small>{{c.client}}{% if c.case_no %} &middot; {{c.case_no}}{% endif %}{% if c.started %} &middot; {{c.started}}{% endif %}{% if c.hearing %} &middot; &#9878; {{c.hearing}}{% endif %}</small>
+{% macro casecard(c) %}<a class="glass cc" data-st="{{c.status}}" data-ty="{{c.ctype or 'court'}}" href="/case/{{c.id}}">
+<div class="cch"><b>{{c.name}}</b><span class="pills"><span class="badge ty">{{t('ct_'+(c.ctype or 'court'))}}</span><span class="badge {{c.status}}">{{t('status_'+c.status)}}</span></span></div>
+<small>{{c.client}}{% if c.party %} &harr; {{c.party}}{% endif %}{% if c.case_no %} &middot; {{c.case_no}}{% endif %}{% if c.started %} &middot; {{c.started}}{% endif %}{% if c.hearing %} &middot; &#9878; {{c.hearing}}{% endif %}</small>
 {% if c.role!='owner' %}<span class="badge sh">&#128101; {{c.owner}} &middot; {{t('role_'+c.role)}}</span>{% elif c.shared %}<span class="badge sh">&#128101; {{t('share_btn')}}</span>{% endif %}
 <div class="ccn"><div><span>{{t('case_ex')}}</span><b class="ex">{{fm(c.exp,c.currency)}}</b></div>
 <div><span>{{t('case_in')}}</span><b class="in">{{fm(c.inc,c.currency)}}</b></div>
@@ -1682,7 +1871,7 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <label>{{t('prof_user')}}</label><input value="@{{user}}" dir="ltr" disabled>
 <button class="btn sm">{{t('save')}}</button></form>
 <form method="post" action="/password" class="glass sec"><h3>{{t('pw_change')}}</h3>
-<label>{{t('pw_old')}}</label><input type="password" name="old" autocomplete="current-password" required>
+<label>{{t('pw_old')}}</label><input type="password" name="old" autocomplete="current-password"{% if not gonly %} required{% endif %}>
 <label>{{t('pw_new')}}</label><input type="password" name="new" autocomplete="new-password" required minlength="4">
 <button class="btn sm">{{t('save')}}</button></form>
 <a class="btn sm red" href="/logout">{{t('logout')}}</a></div>
@@ -1758,17 +1947,20 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <button class="btn">{{t('create')}}</button></form></div>
 
 <div class="sheet" id="casesheet" onclick="if(event.target===this)closeS('casesheet')">
-<form method="post" action="/case/new"><h3>{{t('new_case')}}</h3>
+<form method="post" action="/case/new" class="cf"><h3>{{t('new_case')}}</h3>
+<label>{{t('case_type')}}</label><select name="ctype" onchange="applyType(this.form)">{% for k in ['court','house','car','other'] %}<option value="{{k}}"{{ ' selected' if ('court')==k else '' }}>{{t('ct_'+k)}}</option>{% endfor %}</select>
 <label>{{t('case_name')}}</label><input name="name" required maxlength="80" autocomplete="off">
 <label>{{t('client')}}</label><input name="client" maxlength="80" autocomplete="off">
-<div class="frow"><div><label>{{t('case_no')}}</label><input name="case_no" maxlength="40" autocomplete="off"></div>
-<div><label>{{t('court')}}</label><input name="court" maxlength="80" autocomplete="off"></div></div>
+<label>{{t('party')}}</label><input name="party" maxlength="80" autocomplete="off">
+<div class="frow"><div><label class="l-no">{{t('no_court')}}</label><input name="case_no" maxlength="40" autocomplete="off"></div>
+<div><label class="l-det">{{t('det_court')}}</label><input name="court" maxlength="80" autocomplete="off"></div></div>
 <label>{{t('currency')}}</label><input type="hidden" name="currency" id="ccur" value="IQD">
 <div class="seg"><button type="button" id="cc-IQD" class="on" onclick="setCaseCur('IQD')">{{t('cur_IQD')}} (د.ع)</button>
 <button type="button" id="cc-USD" onclick="setCaseCur('USD')">{{t('cur_USD')}} ($)</button></div>
-<label>{{t('fee')}}</label><input name="fee" inputmode="decimal" placeholder="0" autocomplete="off">
+<div class="frow"><div><label>{{t('fee')}}</label><input name="fee" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+<div class="w-price" style="display:none"><label>{{t('price')}}</label><input name="price" inputmode="decimal" placeholder="0" autocomplete="off"></div></div>
 <div class="frow"><div><label>{{t('started')}}</label><input type="date" name="started" value="{{td}}"></div>
-<div><label>{{t('hearing')}}</label><input type="date" name="hearing"></div></div>
+<div class="w-hearing"><label>{{t('hearing')}}</label><input type="date" name="hearing"></div></div>
 <button class="btn">{{t('create')}}</button></form></div>
 
 <div class="sheet" id="fsheet" onclick="if(event.target===this)closeS('fsheet')">
@@ -1860,8 +2052,10 @@ function setTab(t,keep){tab=t;if(MAIN.indexOf(t)>-1)lastMain=t;try{sessionStorag
  TABS.forEach(k=>{const a=$('t-'+k),b=$('n-'+k);if(a)a.classList.toggle('on',k===t);if(b)b.classList.toggle('on',k===t)});
  document.body.dataset.tab=t;if(!keep)scrollTo(0,0);if(t==='settings'&&!keep)setSub('menu',true);boot()}
 function setSub(n,keep){if(!$('s-'+n))n='menu';sub=n;try{sessionStorage.setItem('sub',n)}catch(e){}document.querySelectorAll('.sv').forEach(e=>e.classList.toggle('on',e.id==='s-'+n));if(!keep)scrollTo(0,0)}
-function filterCases(st){document.querySelectorAll('.cc').forEach(e=>e.style.display=(st==='all'||e.dataset.st===st)?'':'none');
- document.querySelectorAll('#cfilter .pill').forEach(p=>p.classList.toggle('on',p.dataset.f===st))}
+let fSt='all',fTy='all';
+function applyCaseFilter(){document.querySelectorAll('.cc').forEach(e=>e.style.display=((fSt==='all'||e.dataset.st===fSt)&&(fTy==='all'||e.dataset.ty===fTy))?'':'none')}
+function filterCases(st){fSt=st;applyCaseFilter();document.querySelectorAll('#cfilter .pill').forEach(p=>p.classList.toggle('on',p.dataset.f===st))}
+function filterType(ty){fTy=ty;applyCaseFilter();document.querySelectorAll('#tfilter .pill').forEach(p=>p.classList.toggle('on',p.dataset.t===ty))}
 
 /* ---- dangerous actions always ask first ---- */
 function ask(kind,id){
@@ -1938,6 +2132,7 @@ function boot(){
  loadChart(draw)}
 applyTheme();setType('expense');setTab(tab,true);setSub(sub,true);if(MSG)toast(MSG.replace(/^!/,''),MSG[0]!=='!');
 setTimeout(()=>loadChart(()=>{}),2500);
+document.querySelectorAll('form.cf').forEach(applyType);
 </script>""" + PWA + """</body></html>"""
 
 CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{c.name}}</title>{{css|safe}}</head>
@@ -1948,11 +2143,14 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 {% if role!='owner' %}<div class="glass note-banner">&#128101; {{t('shared_by')}} <b>{{owner}}</b> &middot; {{t('role_'+role)}}</div>{% endif %}
 <div class="glass hero"><div class="hl"><span>{{t('cur_'+c.currency)}}</span><div class="pills">{% if role=='owner' %}<button class="mini" onclick="openSheet('sharesheet')">&#128101; {{t('share_btn')}}{% if members %} ({{members|length}}){% endif %}</button><button class="mini" onclick="openSheet('editsheet')">{{t('edit_case')}}</button>{% endif %}</div></div>
 <h1 class="cn">{{c.name}}</h1>
+{% set ct = c.ctype or 'court' %}<span class="badge ty">{{t('ct_'+ct)}}</span>
 <div class="cm">{% if c.client %}<div><span>{{t('client')}}</span><b>{{c.client}}</b></div>{% endif %}
-{% if c.case_no %}<div><span>{{t('case_no')}}</span><b>{{c.case_no}}</b></div>{% endif %}
-{% if c.court %}<div><span>{{t('court')}}</span><b>{{c.court}}</b></div>{% endif %}
+{% if c.party %}<div><span>{{t('party')}}</span><b>{{c.party}}</b></div>{% endif %}
+{% if c.case_no %}<div><span>{{t('no_'+ct)}}</span><b>{{c.case_no}}</b></div>{% endif %}
+{% if c.court %}<div><span>{{t('det_'+ct)}}</span><b>{{c.court}}</b></div>{% endif %}
+{% if c.price and ct!='court' %}<div><span>{{t('price')}}</span><b>{{fm(c.price,cur)}}</b></div>{% endif %}
 {% if c.started %}<div><span>{{t('started')}}</span><b>{{c.started}}</b></div>{% endif %}
-{% if c.hearing %}<div><span>&#9878; {{t('hearing')}}</span><b>{{c.hearing}}</b></div>{% endif %}</div></div>
+{% if c.hearing and ct=='court' %}<div><span>&#9878; {{t('hearing')}}</span><b>{{c.hearing}}</b></div>{% endif %}</div></div>
 
 <div class="stat4">
 <div class="glass"><span>{{t('fee')}}</span><b>{{fm(c.fee,cur)}}</b></div>
@@ -1999,14 +2197,17 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <button class="btn">{{t('save')}}</button></form></div>
 
 <div class="sheet" id="editsheet" onclick="if(event.target===this)closeS('editsheet')">
-<form method="post" action="/case/{{c.id}}/edit"><h3>{{t('edit_case')}}</h3>
+<form method="post" action="/case/{{c.id}}/edit" class="cf"><h3>{{t('edit_case')}}</h3>
+<label>{{t('case_type')}}</label><select name="ctype" onchange="applyType(this.form)">{% for k in ['court','house','car','other'] %}<option value="{{k}}"{{ ' selected' if (c.ctype or 'court')==k else '' }}>{{t('ct_'+k)}}</option>{% endfor %}</select>
 <label>{{t('case_name')}}</label><input name="name" required maxlength="80" value="{{c.name}}" autocomplete="off">
 <label>{{t('client')}}</label><input name="client" maxlength="80" value="{{c.client}}" autocomplete="off">
-<div class="frow"><div><label>{{t('case_no')}}</label><input name="case_no" maxlength="40" value="{{c.case_no}}" autocomplete="off"></div>
-<div><label>{{t('court')}}</label><input name="court" maxlength="80" value="{{c.court}}" autocomplete="off"></div></div>
-<label>{{t('fee')}}</label><input name="fee" inputmode="decimal" value="{{fee_v}}" autocomplete="off">
+<label>{{t('party')}}</label><input name="party" maxlength="80" value="{{c.party or ''}}" autocomplete="off">
+<div class="frow"><div><label class="l-no">{{t('no_court')}}</label><input name="case_no" maxlength="40" value="{{c.case_no}}" autocomplete="off"></div>
+<div><label class="l-det">{{t('det_court')}}</label><input name="court" maxlength="80" value="{{c.court}}" autocomplete="off"></div></div>
+<div class="frow"><div><label>{{t('fee')}}</label><input name="fee" inputmode="decimal" value="{{fee_v}}" autocomplete="off"></div>
+<div class="w-price"><label>{{t('price')}}</label><input name="price" inputmode="decimal" value="{{price_v}}" autocomplete="off"></div></div>
 <div class="frow"><div><label>{{t('started')}}</label><input type="date" name="started" value="{{c.started or ''}}"></div>
-<div><label>{{t('hearing')}}</label><input type="date" name="hearing" value="{{c.hearing or ''}}"></div></div>
+<div class="w-hearing"><label>{{t('hearing')}}</label><input type="date" name="hearing" value="{{c.hearing or ''}}"></div></div>
 <button class="btn">{{t('save')}}</button></form></div>
 
 <div class="sheet" id="csheet" onclick="if(event.target===this)closeS('csheet')">
@@ -2039,6 +2240,7 @@ function softDel(f){f.closest('.item').style.opacity='.3';
   if((dx<0?(rtl?-1:1):(rtl?1:-1))<0)location.href='/#cases'},{passive:true});
 })();
 setType('expense');showL((function(){try{return sessionStorage.getItem('lt')}catch(e){return null}})()||'expense');
+document.querySelectorAll('form.cf').forEach(applyType);
 {% if msg %}toast({{ msg|tojson }}.replace(/^!/,''),{{ msg|tojson }}[0]!=='!');{% endif %}
 </script></body></html>"""
 
@@ -2062,6 +2264,7 @@ th,td{padding:7px 8px;border-bottom:1px solid #ddd;text-align:start;vertical-ali
 th{background:#f1f1f1;font-size:12px}
 td.n,th.n{text-align:end;direction:ltr;white-space:nowrap}
 tfoot td{font-weight:700;border-top:2px solid #111;border-bottom:0}
+tfoot{display:table-row-group}thead{display:table-header-group}h2{break-after:avoid;page-break-after:avoid}
 tr{page-break-inside:avoid}
 .totals{margin:22px 0 0;margin-inline-start:auto;max-width:380px;border:2px solid #111;border-radius:6px;page-break-inside:avoid}
 .totals h3{margin:0;padding:7px 10px;background:#111;color:#fff;font-size:13px}
@@ -2072,12 +2275,16 @@ tr{page-break-inside:avoid}
 .bar{display:flex;gap:8px;justify-content:space-between;margin-bottom:14px}
 .bar a,.bar button{padding:11px 18px;border-radius:12px;border:1px solid #111;background:#fff;color:#111;font:inherit;text-decoration:none;cursor:pointer}
 .bar button{background:#D97757;border-color:#D97757;color:#fff;font-weight:700}
+.grp{display:flex;gap:8px}.bar button.alt{background:#fff;color:#111;border-color:#111}.bar button:disabled{opacity:.6}
+.hint{background:#FFF7F2;border:1px solid #D97757;border-radius:10px;padding:8px 12px;margin:0 0 12px;font-size:13px;line-height:1.7}#sheet{background:#fff}
 @media print{.noprint{display:none}body{padding:0}@page{margin:14mm}}
-</style></head><body>
+</style></head><body data-auto="{{ '1' if auto else '0' }}" data-wait="{{t('pdf_wait')}}" data-fail="{{t('pdf_fail')}}">
 {% macro tbl(rows, total) %}{% if rows %}<table><thead><tr><th>{{t('date')}}</th><th>{{t('col_label')}}</th><th>{{t('note')}}</th><th class="n">{{t('amount')}}</th></tr></thead><tbody>
 {% for r in rows %}<tr><td>{{r.date}}</td><td>{{r.label}}</td><td>{{r.note}}</td><td class="n">{{fm(r.amount,cur)}}</td></tr>{% endfor %}</tbody>
 <tfoot><tr><td colspan="3">{{t('total')}} ({{rows|length}})</td><td class="n">{{fm(total,cur)}}</td></tr></tfoot></table>{% else %}<p class="meta">{{t('empty')}}</p>{% endif %}{% endmacro %}
-<div class="bar noprint"><a href="{{'/case/%s'|format(acc.id) if acc and acc.kind=='case' else '/'}}">&larr; {{t('back')}}</a><button onclick="print()">&#128424; {{t('print_btn')}}</button></div>
+<div class="bar noprint"><a href="{{'/case/%s'|format(acc.id) if acc and acc.kind=='case' else '/'}}">&larr; {{t('back')}}</a><span class="grp"><button class="alt" onclick="makePdf(true)">&#128196; PDF</button><button onclick="doPrint()">&#128424; {{t('print_btn')}}</button></span></div>
+<div id="apphint" class="hint noprint" style="display:none">{{t('app_hint')}}</div>
+<div id="sheet">
 <div class="lh"><div class="lhl">{% if has_logo %}<img class="logo" src="/logo" alt="">{% endif %}<div><div class="office">{{office or t('app')}}</div>{% if phone %}<div class="meta" dir="ltr">&#9742; {{phone}}</div>{% endif %}</div></div><div class="meta">{{t('generated')}}: {{now}}</div></div>
 {% if kind=='grand' %}
 <h1>{{t('print_grand')}}</h1><div class="meta">{{t('period')}}: {{plabel}}</div>
@@ -2088,9 +2295,13 @@ tr{page-break-inside:avoid}
 {% else %}
 {% set case = acc.kind=='case' %}
 <h1>{{acc.name}}</h1>
-{% if case %}<div class="cinfo">{% if acc.client %}<div><span>{{t('client')}}</span><b>{{acc.client}}</b></div>{% endif %}
-{% if acc.case_no %}<div><span>{{t('case_no')}}</span><b>{{acc.case_no}}</b></div>{% endif %}
-{% if acc.court %}<div><span>{{t('court')}}</span><b>{{acc.court}}</b></div>{% endif %}{% if acc.started %}<div><span>{{t('started')}}</span><b>{{acc.started}}</b></div>{% endif %}</div>{% endif %}
+{% if case %}{% set ct = acc.ctype or 'court' %}<div class="cinfo"><div><span>{{t('case_type')}}</span><b>{{t('ct_'+ct)}}</b></div>
+{% if acc.client %}<div><span>{{t('client')}}</span><b>{{acc.client}}</b></div>{% endif %}
+{% if acc.party %}<div><span>{{t('party')}}</span><b>{{acc.party}}</b></div>{% endif %}
+{% if acc.case_no %}<div><span>{{t('no_'+ct)}}</span><b>{{acc.case_no}}</b></div>{% endif %}
+{% if acc.court %}<div><span>{{t('det_'+ct)}}</span><b>{{acc.court}}</b></div>{% endif %}
+{% if acc.price and ct!='court' %}<div><span>{{t('price')}}</span><b>{{fm(acc.price,cur)}}</b></div>{% endif %}
+{% if acc.started %}<div><span>{{t('started')}}</span><b>{{acc.started}}</b></div>{% endif %}</div>{% endif %}
 <div class="meta">{{t('cur_'+cur)}} &middot; {{t('period')}}: {{plabel}}</div>
 {% if kind in ('statement','expense') %}<h2>{{t('case_ex') if case else t('expense')}}</h2>{{ tbl(exp, acc.exp) }}{% endif %}
 {% if kind in ('statement','income') %}<h2>{{t('case_in') if case else t('income')}}</h2>{{ tbl(inc, acc.inc) }}{% endif %}
@@ -2103,7 +2314,8 @@ tr{page-break-inside:avoid}
 <div class="gr"><span>{{t('balance')}}</span><b>{{fm(acc.bal,cur)}}</b></div>{% endif %}</div>{% endif %}
 {% if case %}<div class="sign"><div>{{t('signature')}}</div></div>{% endif %}
 {% endif %}
-<script>{% if auto %}addEventListener('load',function(){setTimeout(function(){print()},700)});{% endif %}</script>
+</div>
+<script>""" + PRINTJS + """</script>
 </body></html>"""
 
 if __name__ == "__main__":
