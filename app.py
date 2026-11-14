@@ -337,6 +337,55 @@ T["en"].update(dict(
   pdf_wait="Please wait...", pdf_fail="Could not create the PDF. Check your connection and try again.",
   app_hint="Direct printing is not available inside the app. Tap PDF, then choose Print or Save to Files from the share sheet."))
 
+T["ku"].update(dict(
+  method="حیساب / لاین", m_cash="نەقدی (سندوق)", m_fastpay="فاستپەی (FastPay)", m_fib="FIB", m_zain="زەین کاش",
+  m_bank="حەواڵەی بانکی", m_other="تر", m_none="بێ دیاریکردن", side="لایەن", side_buyer="کڕیار", side_seller="فرۆشیار",
+  buyer="ناوی کڕیار", seller="ناوی فرۆشیار", advance="پێشەکی", advance_method="پێشەکی بە چ لاینێک",
+  paid_pct="پارەدراو", by_method="بەپێی حیساب / لاین", debts_t="قەرزی موەکیلەکان", total_fee="کۆی گشتی",
+  received_t="وەرگیراو", remaining="ماوە", clients_t="موەکیل و قەرزەکان", client_prof="پرۆفایلی موەکیل",
+  with_debt="تەنها قەرزدار", no_clients="هیچ موەکیلێک نییە", cases_n="دۆسیە", pay_list="پارەدانەکان",
+  search_cases="گەڕان: موەکیل، دۆسیە، ژمارە، پرۆفایل...", search_clients="گەڕان بە ناوی موەکیل...",
+  copy_buyer="کۆپی وەسڵی کڕیار", copy_seller="کۆپی وەسڵی فرۆشیار", copy_receipt="کۆپی وەسڵ", copied="کۆپی کرا ✓",
+  copy_debt="کۆپی کەشفی قەرز", statement_t="کەشفی قەرز",
+  fee="کۆی گشتی (کرێی ڕێککەوتوو)", case_in="وەرگیراو (پێشەکی و پارەدانەکان)", fee_left="ماوە (خۆکار)"))
+T["ar"].update(dict(
+  method="الحساب / القناة", m_cash="نقداً (الصندوق)", m_fastpay="فاست باي (FastPay)", m_fib="FIB", m_zain="زين كاش",
+  m_bank="حوالة بنكية", m_other="أخرى", m_none="غير محدد", side="الطرف", side_buyer="المشتري", side_seller="البائع",
+  buyer="اسم المشتري", seller="اسم البائع", advance="الدفعة المقدمة", advance_method="الدفعة المقدمة عبر",
+  paid_pct="المدفوع", by_method="حسب الحساب / القناة", debts_t="ديون الموكّلين", total_fee="المجموع",
+  received_t="المستلم", remaining="المتبقي", clients_t="الموكّلون والديون", client_prof="ملف الموكّل",
+  with_debt="المدينون فقط", no_clients="لا يوجد موكّلون", cases_n="قضية", pay_list="الدفعات",
+  search_cases="بحث: موكّل، قضية، رقم، ملف...", search_clients="بحث باسم الموكّل...",
+  copy_buyer="نسخ وصل المشتري", copy_seller="نسخ وصل البائع", copy_receipt="نسخ الوصل", copied="تم النسخ ✓",
+  copy_debt="نسخ كشف الدين", statement_t="كشف الدين",
+  fee="المجموع (الأتعاب المتفق عليها)", case_in="المستلم (دفعة مقدمة ودفعات)", fee_left="المتبقي (تلقائي)"))
+T["en"].update(dict(
+  method="Account / channel", m_cash="Cash box", m_fastpay="FastPay", m_fib="FIB", m_zain="ZainCash",
+  m_bank="Bank transfer", m_other="Other", m_none="Not set", side="Side", side_buyer="Buyer", side_seller="Seller",
+  buyer="Buyer name", seller="Seller name", advance="Advance payment", advance_method="Advance paid via",
+  paid_pct="Paid", by_method="By account / channel", debts_t="Client debts", total_fee="Total",
+  received_t="Received", remaining="Remaining", clients_t="Clients and debts", client_prof="Client profile",
+  with_debt="Debtors only", no_clients="No clients", cases_n="cases", pay_list="Payments",
+  search_cases="Search: client, case, number, profile...", search_clients="Search by client name...",
+  copy_buyer="Copy buyer receipt", copy_seller="Copy seller receipt", copy_receipt="Copy receipt", copied="Copied \u2713",
+  copy_debt="Copy debt statement", statement_t="Debt statement",
+  fee="Total (agreed fee)", case_in="Received (advance and payments)", fee_left="Remaining (automatic)"))
+METHODS = ("cash", "fastpay", "fib", "zain", "bank", "other")
+app.jinja_env.globals["methods"] = METHODS
+
+T["ku"].update(dict(
+  client="موەکیل", party="لایەنی بەرامبەر", side_client="موەکیل", side_party="لایەنی بەرامبەر",
+  add_person="زیادکردنی کەسێکی تر", copy_client="کۆپی وەسڵی موەکیل", copy_party="کۆپی وەسڵی لایەنی بەرامبەر",
+  copy_all="کۆپی هەموو تۆمارەکان", joint_with="لەگەڵ"))
+T["ar"].update(dict(
+  client="الموكّل", party="الطرف المقابل", side_client="الموكّل", side_party="الطرف المقابل",
+  add_person="إضافة شخص آخر", copy_client="نسخ وصل الموكّل", copy_party="نسخ وصل الطرف المقابل",
+  copy_all="نسخ كل السجلات", joint_with="مع"))
+T["en"].update(dict(
+  client="Client", party="Opposing party", side_client="Client", side_party="Opposing party",
+  add_person="Add another person", copy_client="Copy client receipt", copy_party="Copy opposing party receipt",
+  copy_all="Copy all entries", joint_with="With"))
+
 def lang():
     return session.get("lang") if session.get("lang") in T else "ku"
 
@@ -352,7 +401,7 @@ def fmt(v, cur, L="en"):
 @app.context_processor
 def ctx():
     L = lang()
-    return dict(t=lambda k: T[L].get(k) or T["en"].get(k) or T["ku"].get(k, k), L=L, dir=T[L]["dir"], fm=lambda v, c: fmt(v, c, L),
+    return dict(t=lambda k: T[L][k], L=L, dir=T[L]["dir"], fm=lambda v, c: fmt(v, c, L),
                 link=lambda **kw: url_for("index", **{**request.args.to_dict(), **kw}))
 
 DIG = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹٫،", "01234567890123456789.,")
@@ -611,11 +660,15 @@ def edit_tx(i):
     d = request.form.get("date") or today().isoformat()
     try: datetime.strptime(d, "%Y-%m-%d")
     except ValueError: d = today().isoformat()
+    extra = {}
+    if "method" in request.form:                   # only the case page sends these fields
+        m, sd = request.form.get("method", ""), request.form.get("side", "")
+        extra = {"p_set_extra": True, "p_method": m if m in METHODS else "", "p_side": sd if sd in ("client", "party") else ""}
     ok = False
     if amt > 0:
         ok = sb.rpc("edit_tx", {"p_user": session["uid"], "p_id": i, "p_amount": amt,
                                 "p_label": request.form.get("label", "").strip()[:120],
-                                "p_note": request.form.get("note", "")[:500], "p_date": d}).execute().data
+                                "p_note": request.form.get("note", "")[:500], "p_date": d, **extra}).execute().data
     if ajax:
         return jsonify(ok=bool(ok)), (200 if ok else 403)
     return redirect(request.referrer or url_for("index"))
@@ -762,17 +815,24 @@ def case_row(i):
     r = sb.table("accounts").select("id").eq("id", i).eq("user_id", session["uid"]).eq("kind", "case").limit(1).execute().data
     return r[0] if r else None
 
+def people(key):
+    out = []
+    for n in request.form.getlist(key):
+        n = n.strip()[:80]
+        if n and n.lower() not in [x.lower() for x in out]: out.append(n)
+    return out[:12]
+
 def case_fields():
     f = request.form
     def day(k):
         try: return datetime.strptime(f.get(k, ""), "%Y-%m-%d").date().isoformat()
         except ValueError: return None
-    ct = f.get("ctype")
-    return {"name": f.get("name", "").strip()[:80], "client": f.get("client", "").strip()[:80],
+    ct, cl, pa = f.get("ctype"), people("client"), people("party")
+    return {"name": f.get("name", "").strip()[:80], "client": " + ".join(cl)[:200], "clients": cl,
             "case_no": f.get("case_no", "").strip()[:40], "court": f.get("court", "").strip()[:80],
             "fee": num(f.get("fee")), "hearing": day("hearing"), "started": day("started"),
             "case_type": ct if ct in ("court", "house", "car", "other") else "court",
-            "party": f.get("party", "").strip()[:80], "price": num(f.get("price"))}
+            "party": " + ".join(pa)[:200], "parties": pa, "price": num(f.get("price"))}
 
 @app.route("/case/new", methods=["POST"])
 @login_required
@@ -783,6 +843,14 @@ def case_new():
     row.update(user_id=session["uid"], kind="case", currency=cur, opening=0)
     if not row.get("started"): row["started"] = today().isoformat()
     r = sb.table("accounts").insert(row).execute().data[0]
+    adv, mth = num(request.form.get("advance")), request.form.get("advance_method")
+    if adv > 0:                                   # the advance payment becomes the first "received" entry
+        try:
+            sb.rpc("add_tx", {"p_user": session["uid"], "p_acc": r["id"], "p_type": "income", "p_amount": adv,
+                              "p_label": T[lang()]["advance"], "p_note": "", "p_date": row["started"], "p_img": None,
+                              **({"p_method": mth} if mth in METHODS else {})}).execute()
+        except Exception as ex:
+            app.logger.error("advance payment not saved: %s", ex)
     return redirect(url_for("case_page", i=r["id"]))
 
 @app.route("/case/<int:i>")
@@ -802,14 +870,27 @@ def case_page(i):
     fee_v = int(c["fee"]) if c["fee"] == int(c["fee"]) else c["fee"]
     c["price"] = float(c.get("price") or 0)
     price_v = int(c["price"]) if c["price"] == int(c["price"]) and c["price"] else (c["price"] or "")
+    ct = c.get("ctype") or "court"
+    inc_v, exp_v = float(d["inc"]), float(d["exp"])
+    pct = min(100, round(inc_v / c["fee"] * 100)) if c["fee"] > 0 else 0
+    by = {}
+    for x in d["items"]:
+        b = by.setdefault(x.get("method") or "none", dict(inc=0.0, exp=0.0))
+        b["inc" if x["type"] == "income" else "exp"] += float(x["amount"])
+    bym = sorted(by.items(), key=lambda kv: (kv[0] == "none", kv[0]))
+    clist = c.get("clients") or ([c["client"]] if c.get("client") else [])
+    ptlist = c.get("parties") or ([c["party"]] if c.get("party") else [])
+    caseinfo = dict(name=c["name"], ct=ct, clients=clist, parties=ptlist, cur=c["currency"],
+                    office=session.get("office", ""), phone=session.get("phone", ""))
     return render_template_string(
-        CASE, c=c, price_v=price_v, cur=c["currency"], inc=float(d["inc"]), exp=float(d["exp"]), n=len(d["items"]), fee_v=fee_v,
+        CASE, c=c, price_v=price_v, pct=pct, bym=bym, caseinfo=caseinfo, clist=clist, ptlist=ptlist, sale=True, cur=c["currency"], inc=float(d["inc"]), exp=float(d["exp"]), n=len(d["items"]), fee_v=fee_v,
         gi=group([x for x in d["items"] if x["type"] == "income"]),
         ge=group([x for x in d["items"] if x["type"] == "expense"]),
         role=d.get("role", "owner"), owner=d.get("owner", ""), members=d.get("members", []), uid=session["uid"],
         show_by=bool(d.get("members")) or d.get("role", "owner") != "owner",
         css=CSS, td=today().isoformat(), tr=dict(T[L]), msg=pop_msg(L),
-        items={x["id"]: dict(type=x["type"], amount=x["amount"], label=x["label"], note=x["note"], date=x["date"]) for x in d["items"]})
+        items={x["id"]: dict(type=x["type"], amount=x["amount"], label=x["label"], note=x["note"], date=x["date"],
+                           method=x.get("method"), side=x.get("side")) for x in d["items"]})
 
 @app.route("/case/<int:i>/edit", methods=["POST"])
 @login_required
@@ -922,6 +1003,41 @@ def profile_photo():
     session["pv"] = uuid.uuid4().hex[:6]
     return jsonify(ok=True)
 
+@app.route("/clients")
+@login_required
+def clients():
+    L = lang()
+    data = sb.rpc("clients_summary", {"p_user": session["uid"]}).execute().data or {}
+    rows = data.get("rows", []) if isinstance(data, dict) else data
+    people_map = {}
+    for r in rows:
+        p = people_map.setdefault(r["k"], dict(name=r["client"], cases=0, cur={}))
+        p["cases"] += r["cases"]
+        p["cur"][r["currency"]] = dict(fee=float(r["fee"]), rec=float(r["received"]), rem=float(r["rem"]))
+    tot = {t["currency"]: dict(fee=float(t["fee"]), rec=float(t["received"]), rem=float(t["rem"]))
+           for t in (data.get("totals", []) if isinstance(data, dict) else [])}
+    plist = sorted(people_map.values(), key=lambda p: (-sum(v["rem"] for v in p["cur"].values()), p["name"].lower()))
+    return render_template_string(CLIENTS, people=plist, tot=tot, css=CSS, tr=dict(T[L]))
+
+@app.route("/client")
+@login_required
+def client_page():
+    L, name = lang(), request.args.get("name", "").strip()
+    d = sb.rpc("client_view", {"p_user": session["uid"], "p_name": name}).execute().data
+    if not d or not d["cases"]: abort(404)
+    tot = {}
+    for c in d["cases"]:
+        c["fee"], c["received"], c["spent"] = float(c["fee"]), float(c["received"]), float(c["spent"])
+        c["rem"] = max(c["fee"] - c["received"], 0)
+        c["others"] = [n for n in (c.get("clients") or []) if n.strip().lower() != name.strip().lower()]
+        t = tot.setdefault(c["currency"], dict(fee=0.0, rec=0.0, rem=0.0))
+        t["fee"] += c["fee"]; t["rec"] += c["received"]; t["rem"] += c["rem"]
+    for p in d["payments"]: p["amount"] = float(p["amount"])
+    info = dict(name=name or "-", office=session.get("office", ""), phone=session.get("phone", ""), tot=tot,
+                cases=[dict(name=c["name"], cur=c["currency"], fee=c["fee"], rec=c["received"], rem=c["rem"]) for c in d["cases"]])
+    return render_template_string(CLIENT, name=name, cases=d["cases"], pays=d["payments"], tot=tot, info=info,
+                                  css=CSS, tr=dict(T[L]))
+
 @app.route("/office", methods=["POST"])
 @login_required
 def office():
@@ -1025,10 +1141,15 @@ def index():
     plabel = T[L]["all_time"] if key == "all" else (s.isoformat() if s == e else s.isoformat() + " \u2192 " + e.isoformat())
     for c in d["cases"]:
         c["fee"] = float(c["fee"]); c.setdefault("role", "owner"); c.setdefault("shared", False)
+    dsum = {}
+    for c in d["cases"]:
+        if c.get("role") != "owner": continue
+        v = dsum.setdefault(c["currency"], dict(fee=0.0, rec=0.0, rem=0.0))
+        v["fee"] += c["fee"]; v["rec"] += float(c["inc"]); v["rem"] += max(c["fee"] - float(c["inc"]), 0)
     return render_template_string(
         HOME, accs=accs, acc=acc, bal=bal, tot=tot, stats=stats, rng=rng, chart=chart, tr=dict(T[L]),
         gi=group(d["items_in"]), ge=group(d["items_ex"]), ni=len(d["items_in"]), nex=len(d["items_ex"]),
-        cases=d["cases"], invites=invites, transfers=transfers, owned=owned, uid=uid, bud=bud, soon=soon, recs=d.get("recurring", []), accname=accname, curmap=curmap,
+        cases=d["cases"], dsum=dsum, invites=invites, transfers=transfers, owned=owned, uid=uid, bud=bud, soon=soon, recs=d.get("recurring", []), accname=accname, curmap=curmap,
         budget_v=budget_v, td=td.isoformat(), css=CSS, user=session["user"], key=key, plabel=plabel, pf=pf,
         msg=pop_msg(L), office=session.get("office", ""), dname=session.get("dname", ""),
         phone=session.get("phone", ""), pv=session.get("pv", "0"), gonly=session.get("gonly", False),
@@ -1056,11 +1177,14 @@ def add():
     if fl and fl.filename and os.path.splitext(fl.filename)[1].lower() in (".jpg", ".jpeg", ".png", ".gif", ".webp"):
         path = f"{uid}/{uuid.uuid4().hex}{os.path.splitext(fl.filename)[1].lower()}"
         data, mime = fl.read(), fl.mimetype or "image/jpeg"
+    extra = {}
+    if request.form.get("method") in METHODS: extra["p_method"] = request.form["method"]
+    if request.form.get("side") in ("client", "party"): extra["p_side"] = request.form["side"]
     try:
         up = POOL.submit(lambda: sb.storage.from_(BUCKET).upload(path, data, {"content-type": mime})) if path else None
         sb.rpc("add_tx", {"p_user": uid, "p_acc": aid, "p_type": typ, "p_amount": amt,
                           "p_label": request.form.get("label", "").strip()[:120],
-                          "p_note": request.form.get("note", "")[:500], "p_date": d, "p_img": path}).execute()
+                          "p_note": request.form.get("note", "")[:500], "p_date": d, "p_img": path, **extra}).execute()
         if up:
             try: up.result()
             except Exception as ex:
@@ -1348,6 +1472,13 @@ input[type=file]{padding:10px}
 .note-banner{padding:12px 16px;margin-bottom:12px;font-size:14px;background:#F1F5FB;border-color:#cfdcf0}
 .x.rc{text-decoration:none;font-size:16px}
 /* ---- features ---- */
+.plist .prow{display:flex;gap:6px;align-items:center;margin-bottom:6px}.plist .prow input{flex:1}
+.addp{background:none;border:1px dashed var(--edge);border-radius:12px;color:var(--acc);font:inherit;font-size:13px;padding:7px 12px;margin:0 0 4px;cursor:pointer;width:100%}
+.badge.mt{background:#EEF2FA;color:#4A6FA5}.badge.sd{background:#F3ECFA;color:#7B4FA8}
+.debts{padding:14px 16px;margin-bottom:12px}
+.prog{padding:12px 14px;margin-bottom:10px}
+.prog .track{height:10px;border-radius:10px;background:var(--soft);overflow:hidden;direction:ltr}.prog .track i{display:block;height:100%;background:var(--in);border-radius:10px}
+.prog .bl{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-top:6px}
 .badge.ty{background:#FFF1E8;color:var(--acc)}
 .or{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:12px;margin:14px 0 4px}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--edge)}
 .gbtn{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;padding:12px;border:1px solid var(--edge);border-radius:14px;background:#fff;color:#1f1f1f;font:inherit;font-weight:700;text-decoration:none}
@@ -1576,9 +1707,14 @@ function shrink(file){return new Promise(res=>{const im=new Image(),u=URL.create
   c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);
   URL.revokeObjectURL(u);c.toBlob(b=>res(b),'image/jpeg',0.72)};
  im.onerror=()=>{URL.revokeObjectURL(u);res(null)};im.src=u})}
-function applyType(f){const t=f.ctype.value,no=f.querySelector('.l-no'),det=f.querySelector('.l-det'),h=f.querySelector('.w-hearing'),p=f.querySelector('.w-price');
+function addPerson(btn,val){const box=btn.previousElementSibling,r=document.createElement('div');r.className='prow';
+ r.innerHTML='<input name="'+box.dataset.name+'" maxlength="80" autocomplete="off"><button type="button" class="x" onclick="this.parentNode.remove()">&#10005;</button>';
+ const inp=r.querySelector('input');if(val)inp.value=val;box.appendChild(r);if(!val)inp.focus()}
+async function copyText(t){try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();try{document.execCommand('copy')}catch(x){}a.remove()}toast(TX.copied,1)}
+function fmtMoney(v,c){const d=c==='USD'?2:0,n=new Intl.NumberFormat('en',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);return c==='USD'?'$'+n:n+(document.documentElement.lang==='en'?' IQD':' \u062f.\u0639')}
+function applyType(f){const sl=f.querySelector('.w-sale'),t=f.ctype.value,no=f.querySelector('.l-no'),det=f.querySelector('.l-det'),h=f.querySelector('.w-hearing'),p=f.querySelector('.w-price');
  if(no)no.textContent=TX['no_'+t];if(det)det.textContent=TX['det_'+t];
- if(h)h.style.display=t==='court'?'':'none';if(p)p.style.display=t==='court'?'none':''}
+ if(h)h.style.display=t==='court'?'':'none';if(p)p.style.display=t==='court'?'none':'';if(sl)sl.style.display=(t==='house'||t==='car')?'':'none'}
 let _lt;
 function lookupUser(inp){clearTimeout(_lt);const v=inp.value.trim().toLowerCase(),box=$('sh-prev'),go=$('sh-go');
  if(go)go.disabled=true;
@@ -1593,7 +1729,9 @@ function lookupUser(inp){clearTimeout(_lt);const v=inp.value.trim().toLowerCase(
   if(go)go.disabled=false}catch(e){box.innerHTML=''}},350)}
 function openEdit(id){const it=getItems()[id];if(!it)return;
  $('e-form').action='/edit/'+id;$('e-amount').value=(it.amount%1?it.amount:Math.round(it.amount));
- $('e-label').value=it.label||'';$('e-note').value=it.note||'';$('e-date').value=it.date;openSheet('esheet')}
+ $('e-label').value=it.label||'';$('e-note').value=it.note||'';$('e-date').value=it.date;
+ if(window.CASE_MODE){$('e-case').style.display='';const mm=$('e-method');mm.disabled=false;mm.value=it.method||'';const sw=$('e-sidew'),se=$('e-side');sw.style.display=window.SALE?'':'none';se.disabled=!window.SALE;se.value=it.side||''}
+ openSheet('esheet')}
 async function submitEdit(f){closeS('esheet');
  try{const r=await fetch(f.action,{method:'POST',body:new FormData(f),headers:{'X-Requested-With':'fetch'}});if(!r.ok)throw 0;toast(TX.saved,1)}catch(e){toast(TX.err)}
  afterEdit()}
@@ -1611,6 +1749,8 @@ ESHEET = """
 <label>{{t('col_label')}}</label><input name="label" id="e-label" autocomplete="off">
 <label>{{t('note')}}</label><textarea name="note" id="e-note" rows="2"></textarea>
 <label>{{t('date')}}</label><input type="date" name="date" id="e-date">
+<div id="e-case" style="display:none"><label>{{t('method')}}</label><select name="method" id="e-method" disabled><option value="">&mdash;</option>{% for m in methods %}<option value="{{m}}">{{t('m_'+m)}}</option>{% endfor %}</select>
+<div id="e-sidew"><label>{{t('side')}}</label><select name="side" id="e-side" disabled><option value="">&mdash;</option><option value="client">{{t('side_client')}}</option><option value="party">{{t('side_party')}}</option></select></div></div>
 <button class="btn">{{t('save')}}</button></form></div>
 """
 
@@ -1802,18 +1942,22 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 
 <section class="tab" id="t-cases">
 <h2 class="ptitle">{{t('cases_t')}}</h2>
+{% if dsum %}<div class="glass debts"><div class="hl"><span>{{t('debts_t')}}</span><a class="mini" href="/clients">&#128101; {{t('clients_t')}}</a></div>
+{% for cur,v in dsum.items() %}<div class="trio" style="margin-top:10px"><div><span>{{t('total_fee')}} ({{t('cur_'+cur)}})</span><b>{{fm(v.fee,cur)}}</b></div>
+<div><span>{{t('received_t')}}</span><b class="in">{{fm(v.rec,cur)}}</b></div><div><span>{{t('remaining')}}</span><b class="ex">{{fm(v.rem,cur)}}</b></div></div>{% endfor %}</div>{% endif %}
+<input class="srch" type="search" placeholder="{{t('search_cases')}}" oninput="searchCases(this.value)">
 <div class="chips" id="cfilter"><button class="pill on" data-f="all" onclick="filterCases('all')">{{t('all')}}</button>
 <button class="pill" data-f="open" onclick="filterCases('open')">{{t('status_open')}}</button>
 <button class="pill" data-f="closed" onclick="filterCases('closed')">{{t('status_closed')}}</button></div>
 <div class="chips" id="tfilter"><button class="pill on" data-t="all" onclick="filterType('all')">{{t('all')}}</button>{% for k in ['court','house','car','other'] %}<button class="pill" data-t="{{k}}" onclick="filterType('{{k}}')">{{t('ct_'+k)}}</button>{% endfor %}</div>
 <button class="btn sm" style="margin:0 0 12px" onclick="openSheet('casesheet')">+ {{t('new_case')}}</button>
-{% macro casecard(c) %}<a class="glass cc" data-st="{{c.status}}" data-ty="{{c.ctype or 'court'}}" href="/case/{{c.id}}">
+{% macro casecard(c) %}<a class="glass cc" data-st="{{c.status}}" data-ty="{{c.ctype or 'court'}}" data-q="{{ ([c.name, c.client, c.party, c.buyer, c.seller, c.case_no, c.court, c.owner, c.owner_dname]|select|join(' '))|lower }}" href="/case/{{c.id}}">
 <div class="cch"><b>{{c.name}}</b><span class="pills"><span class="badge ty">{{t('ct_'+(c.ctype or 'court'))}}</span><span class="badge {{c.status}}">{{t('status_'+c.status)}}</span></span></div>
 <small>{{c.client}}{% if c.party %} &harr; {{c.party}}{% endif %}{% if c.case_no %} &middot; {{c.case_no}}{% endif %}{% if c.started %} &middot; {{c.started}}{% endif %}{% if c.hearing %} &middot; &#9878; {{c.hearing}}{% endif %}</small>
 {% if c.role!='owner' %}<span class="badge sh">&#128101; {{c.owner}} &middot; {{t('role_'+c.role)}}</span>{% elif c.shared %}<span class="badge sh">&#128101; {{t('share_btn')}}</span>{% endif %}
 <div class="ccn"><div><span>{{t('case_ex')}}</span><b class="ex">{{fm(c.exp,c.currency)}}</b></div>
 <div><span>{{t('case_in')}}</span><b class="in">{{fm(c.inc,c.currency)}}</b></div>
-<div><span>{{t('case_net')}}</span><b>{{fm(c.inc-c.exp,c.currency)}}</b></div></div></a>{% endmacro %}
+{% if c.fee %}<div><span>{{t('fee_left')}}</span><b class="ex">{{fm([c.fee-c.inc,0]|max,c.currency)}}</b></div>{% else %}<div><span>{{t('case_net')}}</span><b>{{fm(c.inc-c.exp,c.currency)}}</b></div>{% endif %}</div></a>{% endmacro %}
 <div id="caselist">{% for c in cases if c.role=='owner' %}{{ casecard(c) }}{% else %}<div class="empty">{{t('no_cases')}}</div>{% endfor %}</div>
 {% if cases|selectattr('role','ne','owner')|list %}<h3 class="sub">{{t('shared_with_me')}}</h3>
 <div id="caselist2">{% for c in cases if c.role!='owner' %}{{ casecard(c) }}{% endfor %}</div>{% endif %}
@@ -1950,8 +2094,10 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <form method="post" action="/case/new" class="cf"><h3>{{t('new_case')}}</h3>
 <label>{{t('case_type')}}</label><select name="ctype" onchange="applyType(this.form)">{% for k in ['court','house','car','other'] %}<option value="{{k}}"{{ ' selected' if ('court')==k else '' }}>{{t('ct_'+k)}}</option>{% endfor %}</select>
 <label>{{t('case_name')}}</label><input name="name" required maxlength="80" autocomplete="off">
-<label>{{t('client')}}</label><input name="client" maxlength="80" autocomplete="off">
-<label>{{t('party')}}</label><input name="party" maxlength="80" autocomplete="off">
+<label>{{t('client')}}</label><div class="plist" data-name="client"><div class="prow"><input name="client" maxlength="80" autocomplete="off"></div></div>
+<button type="button" class="addp" onclick="addPerson(this)">+ {{t('add_person')}}</button>
+<label>{{t('party')}}</label><div class="plist" data-name="party"><div class="prow"><input name="party" maxlength="80" autocomplete="off"></div></div>
+<button type="button" class="addp" onclick="addPerson(this)">+ {{t('add_person')}}</button>
 <div class="frow"><div><label class="l-no">{{t('no_court')}}</label><input name="case_no" maxlength="40" autocomplete="off"></div>
 <div><label class="l-det">{{t('det_court')}}</label><input name="court" maxlength="80" autocomplete="off"></div></div>
 <label>{{t('currency')}}</label><input type="hidden" name="currency" id="ccur" value="IQD">
@@ -1959,6 +2105,8 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <button type="button" id="cc-USD" onclick="setCaseCur('USD')">{{t('cur_USD')}} ($)</button></div>
 <div class="frow"><div><label>{{t('fee')}}</label><input name="fee" inputmode="decimal" placeholder="0" autocomplete="off"></div>
 <div class="w-price" style="display:none"><label>{{t('price')}}</label><input name="price" inputmode="decimal" placeholder="0" autocomplete="off"></div></div>
+<div class="frow"><div><label>{{t('advance')}}</label><input name="advance" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+<div><label>{{t('advance_method')}}</label><select name="advance_method">{% for m in methods %}<option value="{{m}}">{{t('m_'+m)}}</option>{% endfor %}</select></div></div>
 <div class="frow"><div><label>{{t('started')}}</label><input type="date" name="started" value="{{td}}"></div>
 <div class="w-hearing"><label>{{t('hearing')}}</label><input type="date" name="hearing"></div></div>
 <button class="btn">{{t('create')}}</button></form></div>
@@ -2052,8 +2200,9 @@ function setTab(t,keep){tab=t;if(MAIN.indexOf(t)>-1)lastMain=t;try{sessionStorag
  TABS.forEach(k=>{const a=$('t-'+k),b=$('n-'+k);if(a)a.classList.toggle('on',k===t);if(b)b.classList.toggle('on',k===t)});
  document.body.dataset.tab=t;if(!keep)scrollTo(0,0);if(t==='settings'&&!keep)setSub('menu',true);boot()}
 function setSub(n,keep){if(!$('s-'+n))n='menu';sub=n;try{sessionStorage.setItem('sub',n)}catch(e){}document.querySelectorAll('.sv').forEach(e=>e.classList.toggle('on',e.id==='s-'+n));if(!keep)scrollTo(0,0)}
-let fSt='all',fTy='all';
-function applyCaseFilter(){document.querySelectorAll('.cc').forEach(e=>e.style.display=((fSt==='all'||e.dataset.st===fSt)&&(fTy==='all'||e.dataset.ty===fTy))?'':'none')}
+let fSt='all',fTy='all',fQ='';
+function applyCaseFilter(){document.querySelectorAll('.cc').forEach(e=>e.style.display=((fSt==='all'||e.dataset.st===fSt)&&(fTy==='all'||e.dataset.ty===fTy)&&(!fQ||(e.dataset.q||'').indexOf(fQ)>-1))?'':'none')}
+function searchCases(v){fQ=v.trim().toLowerCase();applyCaseFilter()}
 function filterCases(st){fSt=st;applyCaseFilter();document.querySelectorAll('#cfilter .pill').forEach(p=>p.classList.toggle('on',p.dataset.f===st))}
 function filterType(ty){fTy=ty;applyCaseFilter();document.querySelectorAll('#tfilter .pill').forEach(p=>p.classList.toggle('on',p.dataset.t===ty))}
 
@@ -2135,6 +2284,52 @@ setTimeout(()=>loadChart(()=>{}),2500);
 document.querySelectorAll('form.cf').forEach(applyType);
 </script>""" + PWA + """</body></html>"""
 
+CLIENTS = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{t('clients_t')}}</title>{{css|safe}}</head>
+<body><div class="wrap" style="padding-bottom:60px">
+<div class="top"><a class="back" style="margin:0" href="/#cases">&lsaquo; {{t('cases_t')}}</a></div>
+<h2 class="ptitle">{{t('clients_t')}}</h2>
+{% for cur,v in tot.items() %}<div class="glass sumc"><span class="lab">{{t('debts_t')}} &middot; {{t('cur_'+cur)}}</span>
+<div class="trio" style="margin-top:8px"><div><span>{{t('total_fee')}}</span><b>{{fm(v.fee,cur)}}</b></div><div><span>{{t('received_t')}}</span><b class="in">{{fm(v.rec,cur)}}</b></div>
+<div><span>{{t('remaining')}}</span><b class="ex">{{fm(v.rem,cur)}}</b></div></div></div>{% endfor %}
+<input class="srch" type="search" placeholder="{{t('search_clients')}}" oninput="fc(this.value)">
+<div class="chips"><button class="pill on" id="cb-all" onclick="fd(0)">{{t('all')}}</button><button class="pill" id="cb-debt" onclick="fd(1)">{{t('with_debt')}}</button></div>
+<div id="clist">{% for p in people %}<a class="glass cc" data-q="{{p.name|lower}}" data-debt="{{1 if (p.cur.values()|sum(attribute='rem'))>0 else 0}}" href="/client?name={{p.name|urlencode}}">
+<div class="cch"><b>{{p.name or '&mdash;'|safe}}</b><span class="badge ty">{{p.cases}} {{t('cases_n')}}</span></div>
+{% for cur,v in p.cur.items() %}<div class="ccn" style="margin-top:8px"><div><span>{{t('total_fee')}} ({{t('cur_'+cur)}})</span><b>{{fm(v.fee,cur)}}</b></div><div><span>{{t('received_t')}}</span><b class="in">{{fm(v.rec,cur)}}</b></div><div><span>{{t('remaining')}}</span><b class="ex">{{fm(v.rem,cur)}}</b></div></div>{% endfor %}
+</a>{% else %}<div class="empty">{{t('no_clients')}}</div>{% endfor %}</div></div>
+<script>""" + COMMON_JS + """
+const TX={{ tr|tojson }};let fq='',fdebt=0;
+function applyF(){document.querySelectorAll('#clist .cc').forEach(e=>e.style.display=((!fq||e.dataset.q.indexOf(fq)>-1)&&(!fdebt||e.dataset.debt==='1'))?'':'none')}
+function fc(v){fq=v.trim().toLowerCase();applyF()}
+function fd(x){fdebt=x;$('cb-all').classList.toggle('on',!x);$('cb-debt').classList.toggle('on',!!x);applyF()}
+</script></body></html>"""
+
+CLIENT = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{name or '-'}}</title>{{css|safe}}</head>
+<body><div class="wrap" style="padding-bottom:60px">
+<div class="top"><a class="back" style="margin:0" href="/clients">&lsaquo; {{t('clients_t')}}</a></div>
+<div class="glass hero"><div class="hl"><span>{{t('client_prof')}}</span><button class="mini" onclick="copyText(debtText())">&#128203; {{t('copy_debt')}}</button></div>
+<h1 class="cn">{{name or '-'}}</h1></div>
+{% for cur,v in tot.items() %}<div class="glass sumc"><span class="lab">{{t('cur_'+cur)}}</span>
+<div class="trio" style="margin-top:8px"><div><span>{{t('total_fee')}}</span><b>{{fm(v.fee,cur)}}</b></div><div><span>{{t('received_t')}}</span><b class="in">{{fm(v.rec,cur)}}</b></div>
+<div><span>{{t('remaining')}}</span><b class="ex">{{fm(v.rem,cur)}}</b></div></div></div>{% endfor %}
+<h3 class="sub">{{t('cases_t')}}</h3>
+{% for c in cases %}<a class="glass cc" href="/case/{{c.id}}"><div class="cch"><b>{{c.name}}{% if c.others %} <small style="color:var(--mut);font-weight:400">&middot; {{t('joint_with')}} {{c.others|join(', ')}}</small>{% endif %}</b><span class="pills"><span class="badge ty">{{t('ct_'+(c.ctype or 'court'))}}</span><span class="badge {{c.status}}">{{t('status_'+c.status)}}</span></span></div>
+<div class="ccn" style="margin-top:8px"><div><span>{{t('total_fee')}}</span><b>{{fm(c.fee,c.currency)}}</b></div><div><span>{{t('received_t')}}</span><b class="in">{{fm(c.received,c.currency)}}</b></div><div><span>{{t('remaining')}}</span><b class="ex">{{fm(c.rem,c.currency)}}</b></div></div></a>{% endfor %}
+<h3 class="sub">{{t('pay_list')}}</h3>
+{% for p in pays %}<div class="glass item"><div class="dot income">&#8595;</div>
+<div class="meta"><b>{{p.label or t('case_in')}}</b><small>{{p.case_name}} &middot; {{p.date}}</small>{% if p.method %}<small><span class="badge mt">{{t('m_'+p.method)}}</span></small>{% endif %}</div>
+<div class="amt income">{{fm(p.amount,p.currency)}}</div></div>{% else %}<div class="empty">{{t('empty')}}</div>{% endfor %}
+</div>
+<script>""" + COMMON_JS + """
+const TX={{ tr|tojson }},INFO={{ info|tojson }};
+function debtText(){const L=[],bar='\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501';
+ if(INFO.office)L.push(INFO.office);if(INFO.phone)L.push('\u260e '+INFO.phone);if(INFO.office||INFO.phone)L.push(bar);
+ L.push(TX.statement_t+': '+INFO.name);L.push(TX.date+': '+localToday());L.push(bar);
+ INFO.cases.forEach((c,n)=>L.push((n+1)+') '+c.name+' \u00b7 '+TX.total_fee+' '+fmtMoney(c.fee,c.cur)+' \u00b7 '+TX.received_t+' '+fmtMoney(c.rec,c.cur)+' \u00b7 '+TX.remaining+' '+fmtMoney(c.rem,c.cur)));
+ L.push(bar);Object.keys(INFO.tot).forEach(k=>{const v=INFO.tot[k];L.push(TX.total_fee+': '+fmtMoney(v.fee,k)+' | '+TX.received_t+': '+fmtMoney(v.rec,k)+' | '+TX.remaining+': '+fmtMoney(v.rem,k))});
+ return L.join('\\n')}
+</script></body></html>"""
+
 CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{c.name}}</title>{{css|safe}}</head>
 <body class="c-{{c.currency}}"><div class="wrap" style="padding-bottom:60px">
 
@@ -2157,13 +2352,18 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <div class="glass"><span>{{t('case_in')}}</span><b class="in">{{fm(inc,cur)}}</b></div>
 <div class="glass"><span>{{t('case_ex')}}</span><b class="ex">{{fm(exp,cur)}}</b></div>
 <div class="glass"><span>{{t('case_net')}}</span><b>{{fm(inc-exp,cur)}}</b></div>
-{% if c.fee %}<div class="glass wide"><span>{{t('fee_left')}}</span><b>{{fm(c.fee-inc,cur)}}</b></div>{% endif %}</div>
+{% if c.fee %}<div class="glass wide"><span>{{t('fee_left')}}</span><b>{{fm([c.fee-inc,0]|max,cur)}}</b></div>{% endif %}</div>
+{% if c.fee %}<div class="glass prog"><div class="track"><i style="width:{{pct}}%"></i></div><div class="bl"><span>{{t('paid_pct')}}: {{pct}}%</span><span>{{fm(inc,cur)}} / {{fm(c.fee,cur)}}</span></div></div>{% endif %}
+{% if bym %}<div class="glass sec"><h3>{{t('by_method')}}</h3>{% for m,v in bym %}<div class="setrow"><div class="nm"><b>{{t('m_'+m)}}</b><small>{{t('received_t')}}: {{fm(v.inc,cur)}} &middot; {{t('case_ex')}}: {{fm(v.exp,cur)}}</small></div><b dir="ltr">{{fm(v.inc-v.exp,cur)}}</b></div>{% endfor %}</div>{% endif %}
 
 {% if role!='viewer' %}<div class="qa"><button class="e" onclick="openAdd('expense')">&#8593; {{t('add_case_ex')}}</button><button class="i" onclick="openAdd('income')">&#8595; {{t('add_case_in')}}</button></div>{% endif %}
 
 <div class="pills prn"><a class="pill" href="/print?kind=statement&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case')}}</a>
 <a class="pill" href="/print?kind=expense&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case_ex')}}</a>
 <a class="pill" href="/print?kind=income&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case_in')}}</a></div>
+<div class="pills prn"><button class="pill" onclick="copyText(receiptText('client'))">&#128203; {{t('copy_client')}}</button>
+<button class="pill" onclick="copyText(receiptText('party'))">&#128203; {{t('copy_party')}}</button>
+<button class="pill" onclick="copyText(receiptText(''))">&#128203; {{t('copy_all')}}</button></div>
 
 <div class="seg"><button type="button" id="lt-expense" class="expense on" onclick="showL('expense')">{{t('case_ex')}}</button>
 <button type="button" id="lt-income" class="income" onclick="showL('income')">{{t('case_in')}}</button></div>
@@ -2171,7 +2371,7 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 {% macro lst(kind, groups) %}<div id="ls-{{kind}}">{% for d,gp in groups %}<div class="day"><span>{{d}}</span><span>{{fm(gp.n,cur)}}</span></div>
 {% for x in gp['items'] %}<div class="glass item">
 <div class="dot {{x.type}}">{{'&#8595;'|safe if x.type=='income' else '&#8593;'|safe}}</div>
-<div class="meta"><b>{{x.label or t('case_'+('in' if x.type=='income' else 'ex'))}}</b>{% if x.note %}<small>{{x.note}}</small>{% endif %}{% if show_by and x.by_user %}<small>&#128100; {{x.by_user}}</small>{% endif %}</div>
+<div class="meta"><b>{{x.label or t('case_'+('in' if x.type=='income' else 'ex'))}}</b>{% if x.note %}<small>{{x.note}}</small>{% endif %}{% if show_by and x.by_user %}<small>&#128100; {{x.by_user}}</small>{% endif %}{% if x.method or x.side %}<small>{% if x.method %}<span class="badge mt">{{t('m_'+x.method)}}</span> {% endif %}{% if x.side %}<span class="badge sd">{{t('side_'+x.side)}}</span>{% endif %}</small>{% endif %}</div>
 {% if x.img %}<a href="/img/{{x.img}}" target="_blank"><img class="thumb" src="/img/{{x.img}}" alt=""></a>{% endif %}
 <div class="amt {{x.type}}">{{fm(x.amount,cur)}}</div>
 {% if x.type=='income' %}<a class="x rc" href="/receipt/{{x.id}}?auto=1" title="{{t('receipt_t')}}">&#129534;</a>{% endif %}{% if role=='owner' or (role=='editor' and x.uid==uid) %}<button class="x ed" onclick="openEdit({{x.id}})" title="{{t('edit_t')}}">&#9998;</button><form method="post" action="/delete/{{x.id}}" onsubmit="if(!confirm('{{t('confirm')}}'))return false;softDel(this);return false"><button class="x" title="{{t('delete')}}">&#10005;</button></form>{% endif %}
@@ -2191,6 +2391,8 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <button type="button" id="b-expense" class="expense" onclick="setType('expense')">{{t('add_case_ex')}}</button></div>
 <input class="big" name="amount" inputmode="decimal" placeholder="0 {{ 'USD' if c.currency=='USD' else 'IQD' }}" required autocomplete="off">
 <label id="lbl"></label><input name="label" autocomplete="off">
+<label>{{t('method')}}</label><select name="method"><option value="">&mdash;</option>{% for m in methods %}<option value="{{m}}">{{t('m_'+m)}}</option>{% endfor %}</select>
+<label>{{t('side')}}</label><select name="side"><option value="">&mdash;</option><option value="client">{{t('side_client')}}</option><option value="party">{{t('side_party')}}</option></select>
 <label>{{t('note')}}</label><textarea name="note" rows="2"></textarea>
 <label>{{t('date')}}</label><input type="date" name="date" id="date" value="{{td}}">
 <label>{{t('photo')}}</label><input type="file" name="photo" accept="image/*">
@@ -2200,8 +2402,10 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <form method="post" action="/case/{{c.id}}/edit" class="cf"><h3>{{t('edit_case')}}</h3>
 <label>{{t('case_type')}}</label><select name="ctype" onchange="applyType(this.form)">{% for k in ['court','house','car','other'] %}<option value="{{k}}"{{ ' selected' if (c.ctype or 'court')==k else '' }}>{{t('ct_'+k)}}</option>{% endfor %}</select>
 <label>{{t('case_name')}}</label><input name="name" required maxlength="80" value="{{c.name}}" autocomplete="off">
-<label>{{t('client')}}</label><input name="client" maxlength="80" value="{{c.client}}" autocomplete="off">
-<label>{{t('party')}}</label><input name="party" maxlength="80" value="{{c.party or ''}}" autocomplete="off">
+<label>{{t('client')}}</label><div class="plist" data-name="client">{% for n in (clist or ['']) %}<div class="prow"><input name="client" maxlength="80" value="{{n}}" autocomplete="off">{% if not loop.first %}<button type="button" class="x" onclick="this.parentNode.remove()">&#10005;</button>{% endif %}</div>{% endfor %}</div>
+<button type="button" class="addp" onclick="addPerson(this)">+ {{t('add_person')}}</button>
+<label>{{t('party')}}</label><div class="plist" data-name="party">{% for n in (ptlist or ['']) %}<div class="prow"><input name="party" maxlength="80" value="{{n}}" autocomplete="off">{% if not loop.first %}<button type="button" class="x" onclick="this.parentNode.remove()">&#10005;</button>{% endif %}</div>{% endfor %}</div>
+<button type="button" class="addp" onclick="addPerson(this)">+ {{t('add_person')}}</button>
 <div class="frow"><div><label class="l-no">{{t('no_court')}}</label><input name="case_no" maxlength="40" value="{{c.case_no}}" autocomplete="off"></div>
 <div><label class="l-det">{{t('det_court')}}</label><input name="court" maxlength="80" value="{{c.court}}" autocomplete="off"></div></div>
 <div class="frow"><div><label>{{t('fee')}}</label><input name="fee" inputmode="decimal" value="{{fee_v}}" autocomplete="off"></div>
@@ -2220,6 +2424,20 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 """ + ESHEET + CASESHARE + """<script>""" + COMMON_JS + """
 const TX={{ tr|tojson }};
 const ITEMS={{ items|tojson }};function getItems(){return ITEMS}function afterEdit(){location.reload()}
+window.CASE_MODE=true;window.SALE={{ 'true' if sale else 'false' }};const CASEINFO={{ caseinfo|tojson }};
+function receiptText(side){
+ const C=CASEINFO,cur=C.cur,NL=String.fromCharCode(10),L=[],bar='━━━━━━━━━━',sep=document.documentElement.lang==='en'?', ':'، ';
+ const rows=Object.values(ITEMS).filter(i=>!side||i.side===side).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+ if(C.office)L.push(C.office);if(C.phone)L.push('☎ '+C.phone);if(C.office||C.phone)L.push(bar);
+ L.push(TX.receipt_t+': '+C.name);
+ if((!side||side==='client')&&C.clients.length)L.push(TX.side_client+': '+C.clients.join(sep));
+ if((!side||side==='party')&&C.parties.length)L.push(TX.side_party+': '+C.parties.join(sep));
+ L.push(TX.date+': '+localToday());L.push(bar);
+ let rec=0,exp=0;
+ rows.forEach((i,n)=>{const inc=i.type==='income',a=+i.amount;if(inc)rec+=a;else exp+=a;
+  L.push((n+1)+') '+i.date+' · '+(i.label||TX[inc?'case_in':'case_ex'])+(i.method?' · '+TX['m_'+i.method]:'')+(i.side&&!side?' · '+TX['side_'+i.side]:'')+' · '+(inc?'+':'−')+fmtMoney(a,cur))});
+ L.push(bar);L.push(TX.received_t+': '+fmtMoney(rec,cur));L.push(TX.case_ex+': '+fmtMoney(exp,cur));L.push(TX.case_net+': '+fmtMoney(rec-exp,cur));
+ return L.join(NL)}
 function setType(t){$('type').value=t;$('lbl').textContent=t==='income'?TX.src_case_in:TX.src_case_ex;['income','expense'].forEach(k=>$('b-'+k).classList.toggle('on',k===t))}
 function openAdd(t){$('date').value=localToday();setType(t);openSheet('sheet')}
 function showL(k){try{sessionStorage.setItem('lt',k)}catch(e){}

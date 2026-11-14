@@ -56,6 +56,22 @@ alter table accounts add column if not exists fee numeric(16,2) not null default
 alter table accounts add column if not exists status text not null default 'open';
 alter table users add column if not exists office text default '';
 
+-- v12: payment channel + side on entries, buyer/seller names, client debts
+alter table tx add column if not exists method text;
+alter table tx add column if not exists side text;
+alter table accounts add column if not exists buyer text default '';
+alter table accounts add column if not exists seller text default '';
+
+-- v13: several clients and several opposing parties on every case (no buyer / seller)
+alter table accounts add column if not exists clients text[] not null default '{}';
+alter table accounts add column if not exists parties text[] not null default '{}';
+update accounts set clients = array[trim(client)]
+  where kind = 'case' and clients = '{}' and coalesce(trim(client), '') <> '';
+update accounts set parties = array_remove(array[nullif(trim(party), ''), nullif(trim(buyer), ''), nullif(trim(seller), '')], null)
+  where kind = 'case' and parties = '{}' and (coalesce(trim(party), '') <> '' or coalesce(trim(buyer), '') <> '' or coalesce(trim(seller), '') <> '');
+update tx set side = 'client' where side = 'buyer';
+update tx set side = 'party' where side = 'seller';
+
 -- v10: case types (court / house / car / other) and Google sign-in
 alter table accounts add column if not exists case_type text not null default 'court';
 alter table accounts add column if not exists party text default '';
@@ -129,19 +145,24 @@ returns text language sql stable as $$
   from accounts a where a.id = p_acc;
 $$;
 
+drop function if exists add_tx(bigint, bigint, text, numeric, text, text, date, text);
 create or replace function add_tx(p_user bigint, p_acc bigint, p_type text, p_amount numeric,
-                                  p_label text, p_note text, p_date date, p_img text)
+                                  p_label text, p_note text, p_date date, p_img text,
+                                  p_method text default null, p_side text default null)
 returns bigint language plpgsql as $$
 declare r text; new_id bigint;
 begin
   r := acc_role(p_user, p_acc);
   if r is null or r = 'viewer' then raise exception 'forbidden' using errcode = '42501'; end if;
-  insert into tx(user_id, account_id, type, amount, label, note, date, img)
-    values (p_user, p_acc, p_type, p_amount, p_label, p_note, p_date, p_img) returning id into new_id;
+  insert into tx(user_id, account_id, type, amount, label, note, date, img, method, side)
+    values (p_user, p_acc, p_type, p_amount, p_label, p_note, p_date, p_img, nullif(p_method, ''),
+            case when p_side in ('client', 'party') then p_side else null end) returning id into new_id;
   return new_id;
 end $$;
 
-create or replace function edit_tx(p_user bigint, p_id bigint, p_amount numeric, p_label text, p_note text, p_date date)
+drop function if exists edit_tx(bigint, bigint, numeric, text, text, date);
+create or replace function edit_tx(p_user bigint, p_id bigint, p_amount numeric, p_label text, p_note text, p_date date,
+                                   p_method text default null, p_side text default null, p_set_extra boolean default false)
 returns boolean language plpgsql as $$
 declare t tx%rowtype; r text;
 begin
@@ -149,7 +170,10 @@ begin
   if not found then return false; end if;
   r := acc_role(p_user, t.account_id);
   if r is null or r = 'viewer' or t.kind <> 'normal' or (r = 'editor' and t.user_id <> p_user) then return false; end if;
-  update tx set amount = p_amount, label = p_label, note = p_note, date = p_date where id = p_id;
+  update tx set amount = p_amount, label = p_label, note = p_note, date = p_date,
+    method = case when p_set_extra then nullif(p_method, '') else method end,
+    side = case when p_set_extra then (case when p_side in ('client', 'party') then p_side else null end) else side end
+  where id = p_id;
   return true;
 end $$;
 
@@ -226,7 +250,8 @@ select jsonb_build_object(
       from account_members m join users u on u.id = m.user_id join accounts a on a.id = m.account_id
       where a.user_id = p_user), '[]'::jsonb),
   'cases', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'name', c.name, 'client', c.client, 'case_no', c.case_no,
-                          'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price,
+                          'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price, 'buyer', c.buyer, 'seller', c.seller,
+                          'owner_dname', (select u.display_name from users u where u.id = c.user_id),
                           'role', acc_role(p_user, c.id),
                           'owner', (select u.username from users u where u.id = c.user_id),
                           'shared', exists (select 1 from account_members m where m.account_id = c.id and m.accepted),
@@ -297,7 +322,7 @@ create or replace function case_view(p_user bigint, p_case bigint)
 returns jsonb language sql stable as $$
 select jsonb_build_object(
   'case', jsonb_build_object('id', c.id, 'name', c.name, 'client', c.client, 'case_no', c.case_no,
-                             'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price),
+                             'court', c.court, 'currency', c.currency, 'fee', c.fee, 'status', c.status, 'hearing', c.hearing, 'started', c.started, 'ctype', c.case_type, 'party', c.party, 'price', c.price, 'buyer', c.buyer, 'seller', c.seller, 'clients', c.clients, 'parties', c.parties),
   'role', acc_role(p_user, c.id),
   'owner', (select u.username from users u where u.id = c.user_id),
   'members', case when c.user_id = p_user then coalesce((
@@ -308,7 +333,7 @@ select jsonb_build_object(
   'exp', coalesce((select sum(t.amount) from tx t where t.account_id = c.id and t.type = 'expense'), 0),
   'items', coalesce((
     select jsonb_agg(to_jsonb(i) order by i.date desc, i.id desc) from (
-      select t.id, t.type, t.amount, t.label, t.note, t.date, t.img, t.user_id as uid,
+      select t.id, t.type, t.amount, t.label, t.note, t.date, t.img, t.method, t.side, t.user_id as uid,
              (select u.username from users u where u.id = t.user_id) as by_user
       from tx t where t.account_id = c.id order by t.date desc, t.id desc limit 1000) i), '[]'::jsonb))
 from accounts c where c.id = p_case and c.kind = 'case' and acc_role(p_user, c.id) is not null;
@@ -319,7 +344,7 @@ create or replace function report(p_user bigint, p_from date, p_to date)
 returns jsonb language sql stable as $$
 select coalesce(jsonb_agg(jsonb_build_object(
   'id', a.id, 'name', a.name, 'currency', a.currency, 'opening', a.opening, 'kind', a.kind,
-  'client', a.client, 'case_no', a.case_no, 'court', a.court, 'fee', a.fee, 'status', a.status, 'started', a.started, 'ctype', a.case_type, 'party', a.party, 'price', a.price,
+  'client', a.client, 'case_no', a.case_no, 'court', a.court, 'fee', a.fee, 'status', a.status, 'started', a.started, 'ctype', a.case_type, 'party', a.party, 'price', a.price, 'buyer', a.buyer, 'seller', a.seller,
   'role', acc_role(p_user, a.id),
   'inc', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'income'  and t.kind = 'normal' and t.date between p_from and p_to), 0),
   'exp', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'expense' and t.kind = 'normal' and t.date between p_from and p_to), 0),
@@ -330,6 +355,46 @@ select coalesce(jsonb_agg(jsonb_build_object(
 ) order by a.id), '[]'::jsonb)
 from accounts a
 where a.user_id = p_user or exists (select 1 from account_members m where m.account_id = a.id and m.user_id = p_user and m.accepted);
+$$;
+
+-- clients: everything a lawyer is owed, grouped by client name (own cases only)
+create or replace function clients_summary(p_user bigint) returns jsonb language sql stable as $$
+with c as (
+  select a.id, a.currency, a.fee,
+         coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'income'), 0) as rec,
+         coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'expense'), 0) as spent,
+         case when coalesce(array_length(a.clients, 1), 0) = 0 then array[''] else a.clients end as names
+  from accounts a where a.user_id = p_user and a.kind = 'case'),
+rws as (
+  select coalesce(min(nullif(trim(n.name), '')), '') as client, lower(trim(n.name)) as k, c.currency,
+         count(*) as cases, sum(c.fee) as fee, sum(c.rec) as received, sum(c.spent) as spent,
+         sum(greatest(c.fee - c.rec, 0)) as rem
+  from c cross join lateral unnest(c.names) as n(name)
+  group by lower(trim(n.name)), c.currency),
+tot as (
+  select c.currency, count(*) as cases, sum(c.fee) as fee, sum(c.rec) as received, sum(greatest(c.fee - c.rec, 0)) as rem
+  from c group by c.currency)
+select jsonb_build_object(
+  'rows', coalesce((select jsonb_agg(to_jsonb(r) order by r.rem desc, r.client) from rws r), '[]'::jsonb),
+  'totals', coalesce((select jsonb_agg(to_jsonb(t)) from tot t), '[]'::jsonb));
+$$;
+
+create or replace function client_view(p_user bigint, p_name text) returns jsonb language sql stable as $$
+with m as (
+  select a.* from accounts a
+  where a.user_id = p_user and a.kind = 'case'
+    and ((lower(trim(p_name)) = '' and coalesce(array_length(a.clients, 1), 0) = 0)
+         or lower(trim(p_name)) in (select lower(trim(x)) from unnest(a.clients) x)))
+select jsonb_build_object(
+  'cases', coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'name', a.name, 'currency', a.currency, 'fee', a.fee,
+      'status', a.status, 'ctype', a.case_type, 'started', a.started, 'clients', a.clients,
+      'received', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'income'), 0),
+      'spent', coalesce((select sum(t.amount) from tx t where t.account_id = a.id and t.type = 'expense'), 0))
+      order by (a.status = 'closed'), a.id desc) from m a), '[]'::jsonb),
+  'payments', coalesce((select jsonb_agg(to_jsonb(p) order by p.date desc, p.id desc) from (
+      select t.id, t.amount, t.date, t.method, t.label, a.name as case_name, a.currency, a.id as case_id
+      from tx t join m a on a.id = t.account_id where t.type = 'income'
+      order by t.date desc, t.id desc limit 100) p), '[]'::jsonb));
 $$;
 
 -- private bucket for photos
