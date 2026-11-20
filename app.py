@@ -376,15 +376,24 @@ app.jinja_env.globals["methods"] = METHODS
 T["ku"].update(dict(
   client="موەکیل", party="لایەنی بەرامبەر", side_client="موەکیل", side_party="لایەنی بەرامبەر",
   add_person="زیادکردنی کەسێکی تر", copy_client="کۆپی وەسڵی موەکیل", copy_party="کۆپی وەسڵی لایەنی بەرامبەر",
-  copy_all="کۆپی هەموو تۆمارەکان", joint_with="لەگەڵ"))
+  copy_all="کۆپی هەموو تۆمارەکان", joint_with="لەگەڵ",
+  print_client="پرینتی موەکیل", print_party="پرینتی لایەنی بەرامبەر", print_all="پرینتی هەموو",
+  ed_edit="دەستکاری نووسین", ed_done="تەواو", ed_font="فۆنت", ed_size="قەبارەی نووسین", ed_paper="کاغەز", ed_reset="گەڕاندنەوە",
+  ed_hint="کلیک لەسەر هەر نووسینێک بکە بۆ گۆڕینی. گۆڕانکارییەکان تەنها بۆ ئەم پرینتەن و پاشەکەوت نابن."))
 T["ar"].update(dict(
   client="الموكّل", party="الطرف المقابل", side_client="الموكّل", side_party="الطرف المقابل",
   add_person="إضافة شخص آخر", copy_client="نسخ وصل الموكّل", copy_party="نسخ وصل الطرف المقابل",
-  copy_all="نسخ كل السجلات", joint_with="مع"))
+  copy_all="نسخ كل السجلات", joint_with="مع",
+  print_client="طباعة الموكّل", print_party="طباعة الطرف المقابل", print_all="طباعة الكل",
+  ed_edit="تعديل النص", ed_done="تم", ed_font="الخط", ed_size="حجم النص", ed_paper="الورق", ed_reset="إعادة الضبط",
+  ed_hint="اضغط على أي نص لتعديله. التعديلات لهذه الطباعة فقط ولا تُحفظ."))
 T["en"].update(dict(
   client="Client", party="Opposing party", side_client="Client", side_party="Opposing party",
   add_person="Add another person", copy_client="Copy client receipt", copy_party="Copy opposing party receipt",
-  copy_all="Copy all entries", joint_with="With"))
+  copy_all="Copy all entries", joint_with="With",
+  print_client="Print client", print_party="Print opposing party", print_all="Print all",
+  ed_edit="Edit text", ed_done="Done", ed_font="Font", ed_size="Text size", ed_paper="Paper", ed_reset="Reset",
+  ed_hint="Tap any text to change it. Edits apply to this printout only and are not saved."))
 
 def lang():
     return session.get("lang") if session.get("lang") in T else "ku"
@@ -801,9 +810,17 @@ def print_view():
     except ValueError: aid = 0
     acc = next((a for a in rep if a["id"] == aid), None)
     if not acc: abort(404)
-    q = (sb.table("tx").select("id,type,amount,label,note,date,kind").eq("account_id", acc["id"])
+    q = (sb.table("tx").select("id,type,amount,label,note,date,kind,side").eq("account_id", acc["id"])
          .gte("date", s.isoformat()).lte("date", e.isoformat()))
     rows = q.order("date").order("id").limit(5000).execute().data
+    side = request.args.get("side")
+    if acc.get("kind") == "case" and side in ("client", "party"):
+        rows = [r for r in rows if r.get("side") == side]
+        acc = dict(acc)
+        acc["inc"] = sum(float(r["amount"]) for r in rows if r["kind"] == "normal" and r["type"] == "income")
+        acc["exp"] = sum(float(r["amount"]) for r in rows if r["kind"] == "normal" and r["type"] == "expense")
+        acc["fee"] = 0
+        base["side"] = side
     base.update(acc=acc, cur=acc["currency"],
                 inc=[r for r in rows if r["kind"] == "normal" and r["type"] == "income"],
                 exp=[r for r in rows if r["kind"] == "normal" and r["type"] == "expense"],
@@ -1786,12 +1803,13 @@ async function makePdf(share){
   await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
   if(document.fonts&&document.fonts.ready)await document.fonts.ready;
   clone=document.getElementById('sheet').cloneNode(true);       /* fixed A4 width, whatever the screen */
-  clone.style.cssText='position:absolute;left:-12000px;top:0;width:794px;background:#fff;padding:0';
+  var P=window.PAPER||{w:794,f:'a4'};clone.removeAttribute('contenteditable');clone.classList.remove('editing');
+  clone.style.position='absolute';clone.style.left='-12000px';clone.style.top='0';clone.style.width=P.w+'px';clone.style.maxWidth='none';clone.style.margin='0';clone.style.background='#fff';clone.style.padding='0';
   document.body.appendChild(clone);
-  var cv=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:794});
+  var cv=await html2canvas(clone,{scale:2,backgroundColor:'#ffffff',useCORS:true,windowWidth:P.w});
   var top=clone.getBoundingClientRect().top;
   var bounds=[].map.call(clone.querySelectorAll('tr,h2,.totals,.sign,.lh,.cinfo'),function(r){return(r.getBoundingClientRect().bottom-top)*2});
-  var pdf=new window.jspdf.jsPDF({unit:'pt',format:'a4'}),m=28;
+  var pdf=new window.jspdf.jsPDF({unit:'pt',format:P.f}),m=(P.f==='a5'?22:28);
   var pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight(),k=(pw-2*m)/cv.width;
   pageBreaks(bounds,cv.height,(ph-2*m)/k).forEach(function(p,i){
    var sl=document.createElement('canvas');sl.width=cv.width;sl.height=Math.ceil(p[1]-p[0]);
@@ -2216,7 +2234,7 @@ function ask(kind,id){
  $('ctitle').textContent=TX['ttl_'+kind];
  $('ctext').textContent=TX['msg_'+kind].replace('{n}',()=>m[2]).replace('{name}',()=>a.name);
  $('cchk').checked=false;$('cgo').disabled=true;openSheet('csheet')}
-function printReport(k){location.href='/print?kind='+k+'&acc='+D.acc+'&auto=1'+(location.search?'&'+location.search.slice(1):'')}
+function printReport(k){location.href='/print?kind='+k+'&acc='+D.acc+(location.search?'&'+location.search.slice(1):'')}
 
 /* ---- speed: instant UI, photo shrink, background save, soft refresh ---- */
 function pend(fd){const t=fd.get('type'),l=$('list-'+t);
@@ -2358,12 +2376,11 @@ CASE = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 
 {% if role!='viewer' %}<div class="qa"><button class="e" onclick="openAdd('expense')">&#8593; {{t('add_case_ex')}}</button><button class="i" onclick="openAdd('income')">&#8595; {{t('add_case_in')}}</button></div>{% endif %}
 
-<div class="pills prn"><a class="pill" href="/print?kind=statement&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case')}}</a>
-<a class="pill" href="/print?kind=expense&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case_ex')}}</a>
-<a class="pill" href="/print?kind=income&acc={{c.id}}&p=all&auto=1">&#128424; {{t('print_case_in')}}</a></div>
-<div class="pills prn"><button class="pill" onclick="copyText(receiptText('client'))">&#128203; {{t('copy_client')}}</button>
-<button class="pill" onclick="copyText(receiptText('party'))">&#128203; {{t('copy_party')}}</button>
-<button class="pill" onclick="copyText(receiptText(''))">&#128203; {{t('copy_all')}}</button></div>
+<div class="pills prn"><a class="pill" href="/print?kind=statement&acc={{c.id}}&p=all&side=client">&#128424; {{t('print_client')}}</a>
+<a class="pill" href="/print?kind=statement&acc={{c.id}}&p=all&side=party">&#128424; {{t('print_party')}}</a>
+<a class="pill" href="/print?kind=statement&acc={{c.id}}&p=all">&#128424; {{t('print_all')}}</a>
+<a class="pill" href="/print?kind=expense&acc={{c.id}}&p=all">&#128424; {{t('print_case_ex')}}</a>
+<a class="pill" href="/print?kind=income&acc={{c.id}}&p=all">&#128424; {{t('print_case_in')}}</a></div>
 
 <div class="seg"><button type="button" id="lt-expense" class="expense on" onclick="showL('expense')">{{t('case_ex')}}</button>
 <button type="button" id="lt-income" class="income" onclick="showL('income')">{{t('case_in')}}</button></div>
@@ -2463,6 +2480,7 @@ document.querySelectorAll('form.cf').forEach(applyType);
 </script></body></html>"""
 
 PRINT = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="utf-8"><title>{{acc.name if acc else t('print_grand')}}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;700&family=Amiri:wght@400;700&display=swap">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#FFFFFF"><link rel="manifest" href="/manifest.webmanifest">
@@ -2495,6 +2513,12 @@ tr{page-break-inside:avoid}
 .bar button{background:#D97757;border-color:#D97757;color:#fff;font-weight:700}
 .grp{display:flex;gap:8px}.bar button.alt{background:#fff;color:#111;border-color:#111}.bar button:disabled{opacity:.6}
 .hint{background:#FFF7F2;border:1px solid #D97757;border-radius:10px;padding:8px 12px;margin:0 0 12px;font-size:13px;line-height:1.7}#sheet{background:#fff}
+#sheet h1{font-size:1.7em}#sheet h2{font-size:1.15em}#sheet .meta,#sheet th,#sheet .cinfo span,#sheet .sign div{font-size:.86em}#sheet .office{font-size:1.3em}#sheet .totals h3{font-size:.93em}#sheet .totals .gr{font-size:1.15em}
+#sheet.editing{outline:2px dashed #D97757;outline-offset:8px}#sheet.editing *{cursor:text}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;padding:10px;border:1px solid #ddd;border-radius:12px;background:#fafafa}
+.tools label{font-size:12px;color:#555;display:flex;align-items:center;gap:6px}
+.tools select,.tools button{font:inherit;font-size:13px;padding:7px 10px;border-radius:9px;border:1px solid #bbb;background:#fff;color:#111;cursor:pointer}
+.tools button.on{background:#D97757;border-color:#D97757;color:#fff}.tools .sz{display:flex;align-items:center;gap:4px}.tools .sz b{min-width:28px;text-align:center;direction:ltr}
 @media print{.noprint{display:none}body{padding:0}@page{margin:14mm}}
 </style></head><body data-auto="{{ '1' if auto else '0' }}" data-wait="{{t('pdf_wait')}}" data-fail="{{t('pdf_fail')}}">
 {% macro tbl(rows, total) %}{% if rows %}<table><thead><tr><th>{{t('date')}}</th><th>{{t('col_label')}}</th><th>{{t('note')}}</th><th class="n">{{t('amount')}}</th></tr></thead><tbody>
@@ -2502,6 +2526,12 @@ tr{page-break-inside:avoid}
 <tfoot><tr><td colspan="3">{{t('total')}} ({{rows|length}})</td><td class="n">{{fm(total,cur)}}</td></tr></tfoot></table>{% else %}<p class="meta">{{t('empty')}}</p>{% endif %}{% endmacro %}
 <div class="bar noprint"><a href="{{'/case/%s'|format(acc.id) if acc and acc.kind=='case' else '/'}}">&larr; {{t('back')}}</a><span class="grp"><button class="alt" onclick="makePdf(true)">&#128196; PDF</button><button onclick="doPrint()">&#128424; {{t('print_btn')}}</button></span></div>
 <div id="apphint" class="hint noprint" style="display:none">{{t('app_hint')}}</div>
+<div class="tools noprint" id="tools"><button type="button" id="t-edit">&#9998; {{t('ed_edit')}}</button>
+<label>{{t('ed_font')}} <select id="t-ff"><option value="'Vazirmatn',sans-serif">Vazirmatn</option><option value="'Noto Naskh Arabic',serif">Noto Naskh</option><option value="'Amiri',serif">Amiri</option><option value="Tahoma,sans-serif">Tahoma</option><option value="Arial,sans-serif">Arial</option><option value="'Times New Roman',serif">Times New Roman</option></select></label>
+<label>{{t('ed_size')}} <span class="sz"><button type="button" id="t-m">&minus;</button><b id="t-fs">14</b><button type="button" id="t-p">+</button></span></label>
+<label>{{t('ed_paper')}} <select id="t-paper"><option value="a4">A4</option><option value="a5">A5</option></select></label>
+<button type="button" id="t-reset">{{t('ed_reset')}}</button></div>
+<div id="edhint" class="hint noprint" style="display:none">{{t('ed_hint')}}</div>
 <div id="sheet">
 <div class="lh"><div class="lhl">{% if has_logo %}<img class="logo" src="/logo" alt="">{% endif %}<div><div class="office">{{office or t('app')}}</div>{% if phone %}<div class="meta" dir="ltr">&#9742; {{phone}}</div>{% endif %}</div></div><div class="meta">{{t('generated')}}: {{now}}</div></div>
 {% if kind=='grand' %}
@@ -2521,6 +2551,7 @@ tr{page-break-inside:avoid}
 {% if acc.price and ct!='court' %}<div><span>{{t('price')}}</span><b>{{fm(acc.price,cur)}}</b></div>{% endif %}
 {% if acc.started %}<div><span>{{t('started')}}</span><b>{{acc.started}}</b></div>{% endif %}</div>{% endif %}
 <div class="meta">{{t('cur_'+cur)}} &middot; {{t('period')}}: {{plabel}}</div>
+{% if side %}<div class="meta"><b>{{t('side_'+side)}}</b></div>{% endif %}
 {% if kind in ('statement','expense') %}<h2>{{t('case_ex') if case else t('expense')}}</h2>{{ tbl(exp, acc.exp) }}{% endif %}
 {% if kind in ('statement','income') %}<h2>{{t('case_in') if case else t('income')}}</h2>{{ tbl(inc, acc.inc) }}{% endif %}
 {% if kind=='statement' and trs %}<h2>{{t('transfer_t')}}</h2><table><thead><tr><th>{{t('date')}}</th><th>{{t('col_label')}}</th><th>{{t('note')}}</th><th class="n">{{t('amount')}}</th></tr></thead><tbody>
@@ -2534,6 +2565,24 @@ tr{page-break-inside:avoid}
 {% endif %}
 </div>
 <script>""" + PRINTJS + """</script>
+<script>(function(){var S=document.getElementById('sheet'),K='printset',D={ff:"'Vazirmatn',sans-serif",fs:14,paper:'a4'},W={a4:794,a5:559},st;
+try{st=Object.assign({},D,JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){st=Object.assign({},D)}
+var ps=document.createElement('style');document.head.appendChild(ps);
+function $(i){return document.getElementById(i)}
+function apply(){if(st.fs<8)st.fs=8;if(st.fs>26)st.fs=26;
+ S.style.fontFamily=st.ff;S.style.fontSize=st.fs+'px';S.style.maxWidth=W[st.paper]+'px';S.style.margin='0 auto';
+ ps.textContent='@media print{@page{size:'+st.paper.toUpperCase()+';margin:'+(st.paper==='a5'?'10mm':'14mm')+'}}';
+ window.PAPER={w:W[st.paper],f:st.paper};
+ $('t-ff').value=st.ff;$('t-fs').textContent=st.fs;$('t-paper').value=st.paper;
+ try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}}
+$('t-ff').onchange=function(){st.ff=this.value;apply()};
+$('t-paper').onchange=function(){st.paper=this.value;apply()};
+$('t-m').onclick=function(){st.fs--;apply()};$('t-p').onclick=function(){st.fs++;apply()};
+$('t-reset').onclick=function(){st=Object.assign({},D);apply()};
+$('t-edit').onclick=function(){var on=S.getAttribute('contenteditable')!=='true';
+ S.setAttribute('contenteditable',on?'true':'false');S.classList.toggle('editing',on);this.classList.toggle('on',on);
+ this.innerHTML=on?'&#10003; {{t("ed_done")}}':'&#9998; {{t("ed_edit")}}';$('edhint').style.display=on?'block':'none'};
+apply()})();</script>
 </body></html>"""
 
 if __name__ == "__main__":
