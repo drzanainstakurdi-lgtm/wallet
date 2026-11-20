@@ -378,21 +378,21 @@ T["ku"].update(dict(
   add_person="زیادکردنی کەسێکی تر", copy_client="کۆپی وەسڵی موەکیل", copy_party="کۆپی وەسڵی لایەنی بەرامبەر",
   copy_all="کۆپی هەموو تۆمارەکان", joint_with="لەگەڵ",
   print_client="پرینتی موەکیل", print_party="پرینتی لایەنی بەرامبەر", print_all="پرینتی هەموو",
-  ed_edit="دەستکاری نووسین", ed_done="تەواو", ed_font="فۆنت", ed_size="قەبارەی نووسین", ed_paper="کاغەز", ed_reset="گەڕاندنەوە",
+  pe_title="دەستکاری پرینت", ed_edit="دەستکاری نووسین", ed_done="تەواو", ed_font="فۆنت", ed_size="قەبارەی نووسین", ed_paper="کاغەز", ed_reset="گەڕاندنەوە",
   ed_hint="کلیک لەسەر هەر نووسینێک بکە بۆ گۆڕینی. گۆڕانکارییەکان تەنها بۆ ئەم پرینتەن و پاشەکەوت نابن."))
 T["ar"].update(dict(
   client="الموكّل", party="الطرف المقابل", side_client="الموكّل", side_party="الطرف المقابل",
   add_person="إضافة شخص آخر", copy_client="نسخ وصل الموكّل", copy_party="نسخ وصل الطرف المقابل",
   copy_all="نسخ كل السجلات", joint_with="مع",
   print_client="طباعة الموكّل", print_party="طباعة الطرف المقابل", print_all="طباعة الكل",
-  ed_edit="تعديل النص", ed_done="تم", ed_font="الخط", ed_size="حجم النص", ed_paper="الورق", ed_reset="إعادة الضبط",
+  pe_title="تعديل الطباعة", ed_edit="تعديل النص", ed_done="تم", ed_font="الخط", ed_size="حجم النص", ed_paper="الورق", ed_reset="إعادة الضبط",
   ed_hint="اضغط على أي نص لتعديله. التعديلات لهذه الطباعة فقط ولا تُحفظ."))
 T["en"].update(dict(
   client="Client", party="Opposing party", side_client="Client", side_party="Opposing party",
   add_person="Add another person", copy_client="Copy client receipt", copy_party="Copy opposing party receipt",
   copy_all="Copy all entries", joint_with="With",
   print_client="Print client", print_party="Print opposing party", print_all="Print all",
-  ed_edit="Edit text", ed_done="Done", ed_font="Font", ed_size="Text size", ed_paper="Paper", ed_reset="Reset",
+  pe_title="Print settings", ed_edit="Edit text", ed_done="Done", ed_font="Font", ed_size="Text size", ed_paper="Paper", ed_reset="Reset",
   ed_hint="Tap any text to change it. Edits apply to this printout only and are not saved."))
 
 def lang():
@@ -2046,7 +2046,12 @@ HOME = """<!doctype html><html lang="{{L}}" dir="{{dir}}"><head><meta charset="u
 <input type="file" id="lg-file" accept="image/*" hidden onchange="uploadPhoto('logo',this)">
 <form method="post" action="/office"><label>{{t('office')}}</label><input name="office" value="{{office}}" maxlength="80" autocomplete="off">
 <label>{{t('phone')}}</label><input name="phone" value="{{phone}}" maxlength="30" inputmode="tel" dir="ltr" autocomplete="off">
-<button class="btn sm">{{t('save')}}</button></form></div></div>
+<button class="btn sm">{{t('save')}}</button></form></div>
+<div class="glass sec"><h3>{{t('pe_title')}}</h3>
+<label>{{t('ed_font')}}</label><select id="ps-ff" onchange="pset('ff',this.value)"><option value="'Vazirmatn',sans-serif">Vazirmatn</option><option value="'Noto Naskh Arabic',serif">Noto Naskh</option><option value="'Amiri',serif">Amiri</option><option value="Tahoma,sans-serif">Tahoma</option><option value="Arial,sans-serif">Arial</option><option value="'Times New Roman',serif">Times New Roman</option></select>
+<label>{{t('ed_size')}}</label><div class="setrow" style="border:0;padding:0;justify-content:center;gap:18px"><button type="button" class="mini" onclick="pstep(-1)">&minus;</button><b id="ps-fs" dir="ltr">14</b><button type="button" class="mini" onclick="pstep(1)">+</button></div>
+<label>{{t('ed_paper')}}</label><select id="ps-paper" onchange="pset('paper',this.value)"><option value="a4">A4</option><option value="a5">A5</option></select>
+<button type="button" class="btn sm ghost" onclick="preset()">{{t('ed_reset')}}</button></div></div>
 
 <div class="sv" id="s-rec"><button class="back" onclick="setSub('menu')">&lsaquo; {{t('back')}}</button>
 <div class="glass sec"><h3>{{t('set_rec')}}</h3><p>{{t('rec_hint')}}</p>
@@ -2217,7 +2222,7 @@ function setCaseCur(c){$('ccur').value=c;['IQD','USD'].forEach(k=>$('cc-'+k).cla
 function setTab(t,keep){tab=t;if(MAIN.indexOf(t)>-1)lastMain=t;try{sessionStorage.setItem('tab',t)}catch(e){}
  TABS.forEach(k=>{const a=$('t-'+k),b=$('n-'+k);if(a)a.classList.toggle('on',k===t);if(b)b.classList.toggle('on',k===t)});
  document.body.dataset.tab=t;if(!keep)scrollTo(0,0);if(t==='settings'&&!keep)setSub('menu',true);boot()}
-function setSub(n,keep){if(!$('s-'+n))n='menu';sub=n;try{sessionStorage.setItem('sub',n)}catch(e){}document.querySelectorAll('.sv').forEach(e=>e.classList.toggle('on',e.id==='s-'+n));if(!keep)scrollTo(0,0)}
+function setSub(n,keep){if(!$('s-'+n))n='menu';sub=n;if(n==='print')pinit();try{sessionStorage.setItem('sub',n)}catch(e){}document.querySelectorAll('.sv').forEach(e=>e.classList.toggle('on',e.id==='s-'+n));if(!keep)scrollTo(0,0)}
 let fSt='all',fTy='all',fQ='';
 function applyCaseFilter(){document.querySelectorAll('.cc').forEach(e=>e.style.display=((fSt==='all'||e.dataset.st===fSt)&&(fTy==='all'||e.dataset.ty===fTy)&&(!fQ||(e.dataset.q||'').indexOf(fQ)>-1))?'':'none')}
 function searchCases(v){fQ=v.trim().toLowerCase();applyCaseFilter()}
@@ -2234,6 +2239,13 @@ function ask(kind,id){
  $('ctitle').textContent=TX['ttl_'+kind];
  $('ctext').textContent=TX['msg_'+kind].replace('{n}',()=>m[2]).replace('{name}',()=>a.name);
  $('cchk').checked=false;$('cgo').disabled=true;openSheet('csheet')}
+var PD={ff:"'Vazirmatn',sans-serif",fs:14,paper:'a4'};
+function pget(){try{return Object.assign({},PD,JSON.parse(localStorage.getItem('printset')||'{}'))}catch(e){return Object.assign({},PD)}}
+function psave(st){if(st.fs<8)st.fs=8;if(st.fs>26)st.fs=26;try{localStorage.setItem('printset',JSON.stringify(st))}catch(e){}pinit()}
+function pinit(){var st=pget();if($('ps-ff'))$('ps-ff').value=st.ff;if($('ps-fs'))$('ps-fs').textContent=st.fs;if($('ps-paper'))$('ps-paper').value=st.paper}
+function pset(k,v){var st=pget();st[k]=v;psave(st)}
+function pstep(d){var st=pget();st.fs=(+st.fs||14)+d;psave(st)}
+function preset(){psave(Object.assign({},PD))}
 function printReport(k){location.href='/print?kind='+k+'&acc='+D.acc+(location.search?'&'+location.search.slice(1):'')}
 
 /* ---- speed: instant UI, photo shrink, background save, soft refresh ---- */
@@ -2527,10 +2539,7 @@ tr{page-break-inside:avoid}
 <div class="bar noprint"><a href="{{'/case/%s'|format(acc.id) if acc and acc.kind=='case' else '/'}}">&larr; {{t('back')}}</a><span class="grp"><button class="alt" onclick="makePdf(true)">&#128196; PDF</button><button onclick="doPrint()">&#128424; {{t('print_btn')}}</button></span></div>
 <div id="apphint" class="hint noprint" style="display:none">{{t('app_hint')}}</div>
 <div class="tools noprint" id="tools"><button type="button" id="t-edit">&#9998; {{t('ed_edit')}}</button>
-<label>{{t('ed_font')}} <select id="t-ff"><option value="'Vazirmatn',sans-serif">Vazirmatn</option><option value="'Noto Naskh Arabic',serif">Noto Naskh</option><option value="'Amiri',serif">Amiri</option><option value="Tahoma,sans-serif">Tahoma</option><option value="Arial,sans-serif">Arial</option><option value="'Times New Roman',serif">Times New Roman</option></select></label>
-<label>{{t('ed_size')}} <span class="sz"><button type="button" id="t-m">&minus;</button><b id="t-fs">14</b><button type="button" id="t-p">+</button></span></label>
-<label>{{t('ed_paper')}} <select id="t-paper"><option value="a4">A4</option><option value="a5">A5</option></select></label>
-<button type="button" id="t-reset">{{t('ed_reset')}}</button></div>
+</div>
 <div id="edhint" class="hint noprint" style="display:none">{{t('ed_hint')}}</div>
 <div id="sheet">
 <div class="lh"><div class="lhl">{% if has_logo %}<img class="logo" src="/logo" alt="">{% endif %}<div><div class="office">{{office or t('app')}}</div>{% if phone %}<div class="meta" dir="ltr">&#9742; {{phone}}</div>{% endif %}</div></div><div class="meta">{{t('generated')}}: {{now}}</div></div>
@@ -2572,13 +2581,7 @@ function $(i){return document.getElementById(i)}
 function apply(){if(st.fs<8)st.fs=8;if(st.fs>26)st.fs=26;
  S.style.fontFamily=st.ff;S.style.fontSize=st.fs+'px';S.style.maxWidth=W[st.paper]+'px';S.style.margin='0 auto';
  ps.textContent='@media print{@page{size:'+st.paper.toUpperCase()+';margin:'+(st.paper==='a5'?'10mm':'14mm')+'}}';
- window.PAPER={w:W[st.paper],f:st.paper};
- $('t-ff').value=st.ff;$('t-fs').textContent=st.fs;$('t-paper').value=st.paper;
- try{localStorage.setItem(K,JSON.stringify(st))}catch(e){}}
-$('t-ff').onchange=function(){st.ff=this.value;apply()};
-$('t-paper').onchange=function(){st.paper=this.value;apply()};
-$('t-m').onclick=function(){st.fs--;apply()};$('t-p').onclick=function(){st.fs++;apply()};
-$('t-reset').onclick=function(){st=Object.assign({},D);apply()};
+ window.PAPER={w:W[st.paper],f:st.paper}}
 $('t-edit').onclick=function(){var on=S.getAttribute('contenteditable')!=='true';
  S.setAttribute('contenteditable',on?'true':'false');S.classList.toggle('editing',on);this.classList.toggle('on',on);
  this.innerHTML=on?'&#10003; {{t("ed_done")}}':'&#9998; {{t("ed_edit")}}';$('edhint').style.display=on?'block':'none'};
