@@ -1,36 +1,235 @@
 import 'package:flutter/material.dart';
 
+import '../case_ui.dart';
 import '../nav.dart';
 import '../state.dart';
 import '../ui.dart';
+import 'archive_page.dart';
 import 'case_page.dart';
+import 'new_case_page.dart';
 
-class CasesPage extends StatelessWidget {
+class CasesPage extends StatefulWidget {
   const CasesPage({super.key});
+
+  @override
+  State<CasesPage> createState() => _CasesPageState();
+}
+
+class _CasesPageState extends State<CasesPage> {
+  final TextEditingController _search = TextEditingController();
+  String _q = '';
+  String _filter = 'all'; // all | hearing | unpaid
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _openNew() => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewCasePage()));
+
+  bool _isHearing(Map<String, dynamic> c) => hearingInfo(c['hearing'])?.soon == true;
+  bool _isUnpaid(Map<String, dynamic> c) => dbl(c['fee']) > dbl(c['inc']);
+
+  bool _matches(Map<String, dynamic> c) {
+    final q = _q.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      final hay = '${c['name']} ${c['client']} ${c['party']} ${c['case_no']} ${c['court']}'.toLowerCase();
+      if (!hay.contains(q)) return false;
+    }
+    if (_filter == 'hearing') return _isHearing(c);
+    if (_filter == 'unpaid') return _isUnpaid(c);
+    return true;
+  }
+
+  // ---------- header summary ----------
+
+  Widget _stat(String value, String label, {Color color = Colors.white}) => Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(value, style: TextStyle(color: color, fontSize: 32, fontWeight: FontWeight.w800, height: 1)),
+          const SizedBox(height: 6),
+          Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        ]),
+      );
+
+  Widget _summary(List<Map<String, dynamic>> open) {
+    final out = <String, double>{};
+    for (final c in open) {
+      final fee = dbl(c['fee']);
+      final rem = fee - dbl(c['inc']);
+      if (fee > 0 && rem > 0) {
+        final cur = c['currency'].toString();
+        out[cur] = (out[cur] ?? 0) + rem;
+      }
+    }
+    final soon = open.where(_isHearing).length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          _stat('${open.length}', app.t('open_cases')),
+          Container(width: 1, height: 44, margin: const EdgeInsets.symmetric(horizontal: 16), color: Colors.white24),
+          _stat('$soon', app.t('f_hearing'), color: soon > 0 ? kBrassLight : Colors.white),
+        ]),
+        if (out.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Container(height: 1, color: Colors.white12),
+          const SizedBox(height: 12),
+          Text(app.t('outstanding'), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 4),
+          Wrap(spacing: 18, runSpacing: 2, children: [
+            for (final e in out.entries)
+              Text(money(e.value, e.key),
+                  textDirection: TextDirection.ltr,
+                  style: const TextStyle(color: kBrassLight, fontSize: 21, fontWeight: FontWeight.w800)),
+          ]),
+        ],
+      ]),
+    );
+  }
+
+  // ---------- search + filters ----------
+
+  Widget _searchBox() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 12),
+      child: Container(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: kSoftShadow),
+        child: TextField(
+          controller: _search,
+          onChanged: (v) => setState(() => _q = v),
+          decoration: InputDecoration(
+            hintText: app.t('search'),
+            hintStyle: const TextStyle(color: kSlate),
+            prefixIcon: const Icon(Icons.search_rounded, color: kSlate),
+            suffixIcon: _q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded, color: kSlate, size: 20),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() => _q = '');
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.white,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 15),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: const BorderSide(color: kInk, width: 1.2)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _chip(String key, String label, int n) {
+    final sel = _filter == key;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: Material(
+        color: sel ? kInk : Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(30),
+          onTap: () => setState(() => _filter = key),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: sel ? kInk : kLine),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(label, style: TextStyle(color: sel ? Colors.white : kInk, fontWeight: FontWeight.w700, fontSize: 13)),
+              const SizedBox(width: 7),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: sel ? Colors.white.withValues(alpha: 0.2) : kPaper,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text('$n', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: sel ? Colors.white : kSlate)),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _filters(List<Map<String, dynamic>> open) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(children: [
+        _chip('all', app.t('f_all'), open.length),
+        _chip('hearing', app.t('f_hearing'), open.where(_isHearing).length),
+        _chip('unpaid', app.t('f_unpaid'), open.where(_isUnpaid).length),
+      ]),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: app,
       builder: (context, _) {
-        final cases = app.cases;
+        final open = app.cases.where((c) => c['status'] != 'closed').toList();
+        final list = open.where(_matches).toList();
         return Scaffold(
-          appBar: AppBar(
-            title: Text(app.t('cases')),
-            actions: [
-              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: () => showNewCase(context)),
-              IconButton(icon: const Icon(Icons.settings_outlined), onPressed: () => openSettings(context)),
-            ],
-          ),
+          backgroundColor: kPaper,
           body: RefreshIndicator(
             onRefresh: () => app.load(quiet: true),
-            child: ListView(
+            child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 110, top: 8),
-              children: [
-                if (cases.isEmpty)
-                  Padding(padding: const EdgeInsets.all(32), child: Center(child: Text(app.t('nodata')))),
-                for (final c in cases) _CaseTile(c: c),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: PageHeader(
+                    title: app.t('cases'),
+                    actions: [
+                      headerIcon(Icons.inventory_2_outlined,
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ArchivePage())),
+                          tip: app.t('archive')),
+                      headerIcon(Icons.add_rounded, _openNew, tip: app.t('new_case')),
+                      headerIcon(Icons.settings_outlined, () => openSettings(context)),
+                    ],
+                    child: _summary(open),
+                  ),
+                ),
+                SliverToBoxAdapter(child: _searchBox()),
+                SliverToBoxAdapter(child: _filters(open)),
+                const SliverToBoxAdapter(child: SizedBox(height: 18)),
+                if (list.isEmpty)
+                  SliverToBoxAdapter(child: _Empty(noCases: open.isEmpty, onCreate: _openNew))
+                else
+                  SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, i) => TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration: Duration(milliseconds: 260 + (i > 6 ? 6 : i) * 45),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, v, child) => Opacity(
+                          opacity: v,
+                          child: Transform.translate(offset: Offset(0, (1 - v) * 16), child: child),
+                        ),
+                        child: CaseFolder(
+                          c: list[i],
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => CasePage(caseId: intOrNull(list[i]['id'])!)),
+                          ),
+                        ),
+                      ),
+                      childCount: list.length,
+                    ),
+                  ),
+                const SliverToBoxAdapter(child: SizedBox(height: 110)),
               ],
             ),
           ),
@@ -40,209 +239,40 @@ class CasesPage extends StatelessWidget {
   }
 }
 
-class _CaseTile extends StatelessWidget {
-  const _CaseTile({required this.c});
+class _Empty extends StatelessWidget {
+  const _Empty({required this.noCases, required this.onCreate});
 
-  final Map<String, dynamic> c;
-
-  @override
-  Widget build(BuildContext context) {
-    final cur = c['currency'].toString();
-    final fee = dbl(c['fee']);
-    final inc = dbl(c['inc']);
-    final exp = dbl(c['exp']);
-    final closed = c['status'] == 'closed';
-    final remaining = (fee - inc).clamp(0, double.infinity);
-    return Panel(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => CasePage(caseId: intOrNull(c['id'])!)),
-      ),
-      child: Opacity(
-        opacity: closed ? 0.6 : 1,
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-              child: Text(c['name'].toString(),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis),
-            ),
-            if (closed)
-              Chip(label: Text(app.t('closed')), visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
-          ]),
-          if ((c['client']?.toString() ?? '').isNotEmpty)
-            Text(c['client'].toString(), style: const TextStyle(color: Colors.black54)),
-          if ((c['case_no']?.toString() ?? '').isNotEmpty || (c['court']?.toString() ?? '').isNotEmpty)
-            Text('${c['case_no'] ?? ''}  ${c['court'] ?? ''}'.trim(),
-                style: const TextStyle(color: Colors.black54, fontSize: 13)),
-          const SizedBox(height: 10),
-          if (fee > 0)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: (inc / fee).clamp(0.0, 1.0),
-                minHeight: 6,
-                color: kGreen,
-                backgroundColor: Colors.black12,
-              ),
-            ),
-          const SizedBox(height: 8),
-          Wrap(spacing: 14, runSpacing: 4, children: [
-            Text('${app.t('fee')}: ${money(fee, cur)}', style: const TextStyle(fontSize: 13)),
-            Text('${app.t('received')}: ${money(inc, cur)}', style: const TextStyle(fontSize: 13, color: kIncome)),
-            Text('${app.t('spent')}: ${money(exp, cur)}', style: const TextStyle(fontSize: 13, color: kExpense)),
-            if (fee > 0) Text('${app.t('remaining')}: ${money(remaining.toDouble(), cur)}', style: const TextStyle(fontSize: 13)),
-          ]),
-        ]),
-      ),
-    );
-  }
-}
-
-Future<void> showNewCase(BuildContext context) {
-  return showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-    builder: (c) => const _NewCaseSheet(),
-  );
-}
-
-class _NewCaseSheet extends StatefulWidget {
-  const _NewCaseSheet();
-
-  @override
-  State<_NewCaseSheet> createState() => _NewCaseSheetState();
-}
-
-class _NewCaseSheetState extends State<_NewCaseSheet> {
-  final _name = TextEditingController();
-  final _client = TextEditingController();
-  final _party = TextEditingController();
-  final _no = TextEditingController();
-  final _court = TextEditingController();
-  final _fee = TextEditingController();
-  final _advance = TextEditingController();
-  String _cur = 'IQD';
-  String _ctype = 'court';
-  DateTime? _hearing;
-  bool _busy = false;
-  String? _err;
-
-  @override
-  void dispose() {
-    for (final c in [_name, _client, _party, _no, _court, _fee, _advance]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  // "Ali + Sara" or "Ali, Sara" -> ['Ali', 'Sara']
-  List<String> _people(String s) =>
-      s.split(RegExp(r'[+,،]')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-
-  Future<void> _save() async {
-    if (_name.text.trim().isEmpty) {
-      setState(() => _err = app.t('name'));
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _err = null;
-    });
-    try {
-      final id = await sb.rpc('api_new_case', params: {
-        'p_name': _name.text.trim(),
-        'p_currency': _cur,
-        'p_clients': _people(_client.text),
-        'p_parties': _people(_party.text),
-        'p_case_no': _no.text.trim(),
-        'p_court': _court.text.trim(),
-        'p_fee': parseAmount(_fee.text),
-        'p_ctype': _ctype,
-        'p_started': ymd(DateTime.now()),
-        'p_hearing': _hearing == null ? null : ymd(_hearing!),
-        'p_price': 0,
-        'p_advance': parseAmount(_advance.text),
-      });
-      await app.load(quiet: true);
-      if (!mounted) return;
-      Navigator.pop(context);
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CasePage(caseId: intOrNull(id)!)));
-    } catch (e) {
-      setState(() {
-        _err = errText(e, app.lang);
-        _busy = false;
-      });
-    }
-  }
-
-  Widget _field(TextEditingController c, String key, {bool number = false}) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: TextField(
-          controller: c,
-          keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
-          decoration: InputDecoration(labelText: app.t(key), border: const OutlineInputBorder()),
-        ),
-      );
+  final bool noCases;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + bottom),
-      child: SingleChildScrollView(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(app.t('new_case'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 14),
-          _field(_name, 'name'),
-          _field(_client, 'client'),
-          _field(_party, 'party'),
-          _field(_no, 'case_no'),
-          _field(_court, 'court'),
-          _field(_fee, 'fee', number: true),
-          _field(_advance, 'advance', number: true),
-          SegmentedButton<String>(
-            segments: const [ButtonSegment(value: 'IQD', label: Text('IQD')), ButtonSegment(value: 'USD', label: Text('USD'))],
-            selected: {_cur},
-            onSelectionChanged: (s) => setState(() => _cur = s.first),
+      padding: const EdgeInsets.fromLTRB(32, 36, 32, 0),
+      child: Column(children: [
+        Container(
+          width: 96,
+          height: 96,
+          decoration: BoxDecoration(color: kInk.withValues(alpha: 0.07), shape: BoxShape.circle),
+          child: Icon(noCases ? Icons.create_new_folder_outlined : Icons.search_off_rounded, size: 44, color: kInk.withValues(alpha: 0.7)),
+        ),
+        const SizedBox(height: 18),
+        Text(app.t(noCases ? 'empty_cases' : 'no_search'),
+            textAlign: TextAlign.center, style: const TextStyle(color: kSlate, fontSize: 15, height: 1.5)),
+        if (noCases) ...[
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add_rounded),
+            label: Text(app.t('new_case')),
+            style: FilledButton.styleFrom(
+              backgroundColor: kInk,
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
           ),
-          const SizedBox(height: 10),
-          SegmentedButton<String>(
-            segments: [
-              for (final k in ['court', 'house', 'car', 'other']) ButtonSegment(value: k, label: Text(app.t('ct_$k'))),
-            ],
-            selected: {_ctype},
-            onSelectionChanged: (s) => setState(() => _ctype = s.first),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _hearing ?? DateTime.now(),
-                firstDate: DateTime(2000),
-                lastDate: DateTime(DateTime.now().year + 5),
-              );
-              if (d != null) setState(() => _hearing = d);
-            },
-            icon: const Icon(Icons.event),
-            label: Text('${app.t('hearing')}: ${_hearing == null ? '-' : ymd(_hearing!)}'),
-          ),
-          if (_err != null) ...[
-            const SizedBox(height: 10),
-            Text(_err!, style: const TextStyle(color: kExpense)),
-          ],
-          const SizedBox(height: 14),
-          FilledButton(
-            onPressed: _busy ? null : _save,
-            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-            child: _busy
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(app.t('save')),
-          ),
-        ]),
-      ),
+        ],
+      ]),
     );
   }
 }
