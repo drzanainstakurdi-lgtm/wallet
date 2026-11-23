@@ -1,0 +1,81 @@
+name: iOS (TestFlight)
+
+on:
+  workflow_dispatch:          # Actions tab > iOS (TestFlight) > Run workflow
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: flutter_app
+    env:
+      HAS_SIGNING: ${{ secrets.APPSTORE_KEY_P8 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Create project files
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          flutter create --platforms=ios,android --org com.dana --project-name wallet .
+          sh scripts/patch_ios.sh
+          flutter pub get
+          dart run flutter_launcher_icons
+
+      - name: Build Flutter (no signing yet)
+        run: |
+          flutter build ios --release --no-codesign \
+            --build-number ${{ github.run_number }} \
+            --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }} \
+            --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }} \
+            --dart-define=GOOGLE_IOS_CLIENT_ID=${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+
+      - name: No Apple secrets set
+        if: env.HAS_SIGNING != 'true'
+        run: echo "The app compiles. Add the APPSTORE_* and IOS_TEAM_ID secrets to sign and upload it."
+
+      - name: Sign and upload to TestFlight
+        if: env.HAS_SIGNING == 'true'
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          KEY_P8: ${{ secrets.APPSTORE_KEY_P8 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys
+          KEY_PATH=~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+          printf '%s\n' "$KEY_P8" > "$KEY_PATH"
+
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>destination</key><string>upload</string>
+            <key>uploadSymbols</key><true/>
+          </dict>
+          </plist>
+          PLIST
+
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $KEY_PATH -authenticationKeyID $KEY_ID -authenticationKeyIssuerID $ISSUER_ID"
+
+          xcodebuild archive \
+            -workspace ios/Runner.xcworkspace -scheme Runner -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" $AUTH
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath "$RUNNER_TEMP/export" $AUTH
